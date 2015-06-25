@@ -6,7 +6,7 @@
 # FASTQ to RDAT
 #
 # This script generates a 2D correlated mutational profiling dataset using one of two sources:
-# 	1. Demultiplexed and quality-filtered Read 1 and Read 2 FASTQ files 
+# 	1. Demultiplexed and quality-filtered Read 1 and Read 2 FASTQ files
 # 	2. Data in 'simple' binary format that records the mutations in sequenced cDNAs
 # 	If a 'simple' file is input, the script does not use FASTQ files.
 #
@@ -64,7 +64,7 @@ def reverse_complement( sequence ):
 
 
 def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutation and 0 at each WT nt
-	
+
 	# Get WT sequence, rev comp, and length
 	f_log.write( 'Starting analysis at ' + timeStamp() )
 	f_log.write( '\n\nRNA name: ' + args.name )
@@ -105,15 +105,24 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	seqs_read2_align = []
 	f_seqs_read1 = open(currdir + '/' + args.outprefix + '_Read1aligned.txt','w')
 	f_seqs_read2 = open(currdir + '/' + args.outprefix + '_Read2aligned.txt','w')
+        GAP_OPEN   = -5 # originally -5
+        GAP_EXTEND = -1
 	for line, seq in enumerate(seqs_read1):
-		aligned_read1 = nw.global_align( WTrev_trunc, seqs_read1[line], gap_open=-5, gap_extend=-1 )
-		seqs_read1_align.append( aligned_read1[1] )
-		f_seqs_read1.write( aligned_read1[1] )
+                seq_read1 = seqs_read1[ line ]
+                pos = seq_read1.find( 'AGATCGGAAGAGC' ) # position of ligation adapter. Easy to recognize.
+                if ( pos > -1 ): seq_read1 = seq_read1[ :pos];
+                WTrev_trunc = WTrev[:pos]
+		aligned_read1 = nw.global_align( WTrev_trunc, seq_read1, gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
+
+                pos = aligned_read1[1].find( '----' )
+                if ( pos > -1 ): aligned_read1 = (aligned_read1[0][ :pos], aligned_read1[1][ :pos ] )
+		seqs_read1_align.append( aligned_read1 )
+		f_seqs_read1.write( aligned_read1[1]+' '+aligned_read1[0] )
 		f_seqs_read1.write('\n')
 
-		aligned_read2 = nw.global_align( WTfwd_trunc, seqs_read2[line], gap_open=-5, gap_extend=-1 )
-		seqs_read2_align.append( aligned_read2[1] )
-		f_seqs_read2.write( aligned_read2[1] )
+		aligned_read2 = nw.global_align( WTfwd_trunc, seqs_read2[line], gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
+		seqs_read2_align.append( aligned_read2 )
+		f_seqs_read2.write( aligned_read2[1]+' '+aligned_read2[0])
 		f_seqs_read2.write('\n')
 	f_log.write( '\nAlignment finished at ' + timeStamp() )
 	f_seqs_read1.close()
@@ -122,32 +131,49 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	# Compare WT sequence to both read1 and read2 and build simple file
 	simple = [[0 for col in range(WTlen)] for row in range(len(seqs_read1_align))]			# initialize simple array for recording mutations per position per read in binary
 	mutations = np.zeros([len(seqs_read1_align),20,WTlen])
-	mutdict = {'AT':0,'AG':1,'AC':2,'AN':3,'A-':4,'TA':5,'TG':6,'TC':7,'TN':8,'T-':9,'GA':10,'GT':11,'GC':12,'GN':13,'G-':14,'CA':15,'CT':16,'CG':17,'CN':18,'C-':19}
+	mutdict = {'AT':0 ,'AG':1 ,'AC':2 ,'AN':3 ,'A-':4,
+                   'TA':5 ,'TG':6 ,'TC':7 ,'TN':8 ,'T-':9,
+                   'GA':10,'GT':11,'GC':12,'GN':13,'G-':14,
+                   'CA':15,'CT':16,'CG':17,'CN':18,'C-':19}
 			# Dictionary includes all potential mutations, e.g. A to T, G, C, del, or N (ambiguous read, not counted); del = '-'
 	mut_projection = np.zeros([20,WTlen])
 
-	for idx, nt in enumerate(WTrev_trunc):
-		for line, seq in enumerate(seqs_read1_align):
-			if seq[idx] == nt:
-				simple[line][WTlen-idx-1] = 0
-			elif seq[idx] != nt:
-				if seq[idx] == 'N':										# Ignore reads with N because not necessarily mutated
-					simple[line][WTlen-idx-1] = 0
-				else:
-					simple[line][WTlen-idx-1] = 1
-					pair = nt+seq[idx]
-					mutations[line][mutdict[pair]][WTlen-idx-1] += 1	# Record 2D array of mutation frequencies for each sequence in Read 1
-	for idx, nt in enumerate(WTfwd_trunc):
-		for line, seq in enumerate(seqs_read2_align):
-			if seq[idx] == nt:
-				simple[line][idx] = 0
-			elif seq[idx] != nt:
-				if seq[idx] == 'N':
-					simple[line][idx] = 0
-				else:
-					simple[line][idx] = 1
-					pair = nt+seq[idx]
-					mutations[line][mutdict[pair]][idx] += 1			# Record 2D array of mutation frequencies for each sequence in Read 2
+        print_out_problem = False
+        for line, seq_align in enumerate(seqs_read1_align):
+                idx = -1
+                if line == 1 : print seq_align[0]+'\n'+seq_align[1]+'\n'
+                for count,wt_nt in enumerate( seq_align[0] ): # should be wild type sequence
+                        if wt_nt != '-': idx += 1
+                        read_nt = seq_align[1][count]
+                        if read_nt == wt_nt:
+                                simple[line][WTlen-idx-1] = 0
+                        else:
+                                if read_nt == 'N':										# Ignore reads with N because not necessarily mutated
+                                        simple[line][WTlen-idx-1] = 0
+                                else:
+                                        if ( wt_nt != '-' ): # note recording insertions -- fix this!
+                                                if ( line == 1 ): print 'mismatch: ', idx, wt_nt, '-->', read_nt
+                                                simple[line][WTlen-idx-1] = 1
+                                                pair = wt_nt+read_nt
+                                                mutations[line][mutdict[pair]][WTlen-idx-1] += 1	# Record 2D array of mutation frequencies for each sequence in Read 1
+
+                if not print_out_problem and simple[line].count(1) > 20:
+                     print_out_problem = True
+                     print 'Problem line: ', line+1, ' has ', simple[line].count(1), ' mutations'
+                     print seq_align[0]+'\n'+seq_align[1]+'\n'
+
+        if False: # off for now.
+                for idx, nt in enumerate(WTfwd_trunc):
+                        for line, seq in enumerate(seqs_read2_align):
+                                if seq[idx] == nt:
+                                        simple[line][idx] = 0
+                                elif seq[idx] != nt:
+                                        if seq[idx] == 'N':
+                                                simple[line][idx] = 0
+                                        else:
+                                                simple[line][idx] = 1
+                                                pair = nt+seq[idx]
+                                                mutations[line][mutdict[pair]][idx] += 1			# Record 2D array of mutation frequencies for each sequence in Read 2
 
 	# Project mutation frequencies across sequences, filtering out reads with 10 or more
 	count = 0
@@ -161,7 +187,7 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 
 	mut_projection = np.concatenate([mut_projection, np.sum(mut_projection, axis=1, keepdims=True)], axis=1)			# Total number of each type of mutation across all positions
 	mut_projection = np.concatenate([mut_projection, np.sum(mut_projection, axis=0, keepdims=True) / count], axis=0)	# Mutation frequency at each position
-	
+
 	f_muts = open(currdir + '/' + args.outprefix + '_mutations.csv','w')
 	f_muts.write('Nucleotide:,' + ','.join(sequence) + '\n')
 	f_muts.write('Sequence position:,' + ','.join(map(str,seqpos+1)) + '\n')
