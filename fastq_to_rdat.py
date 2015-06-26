@@ -63,6 +63,31 @@ def reverse_complement( sequence ):
 	return ''.join([sequence_dict[nt] for nt in reversed(sequence)])
 
 
+# Dictionary includes all potential mutations, e.g. A to T, G, C, del, or N (ambiguous read, not counted); del = '-'
+mutdict = {'AT':0 ,'AG':1 ,'AC':2 ,'AN':3 ,'A-':4,
+           'TA':5 ,'TG':6 ,'TC':7 ,'TN':8 ,'T-':9,
+           'GA':10,'GT':11,'GC':12,'GN':13,'G-':14,
+           'CA':15,'CT':16,'CG':17,'CN':18,'C-':19}
+
+def record_mutations( seq_align, line, simple, mutations,  direction = 'reverse'):
+        idx = -1
+        for count,(wt_nt,read_nt) in enumerate( zip( seq_align[0], seq_align[1] ) ):
+                if wt_nt != '-': idx += 1
+                idx_to_use = idx
+                if (direction == 'reverse'): idx_to_use = len( simple[0] ) - idx -1
+                if ( idx_to_use >= len( simple[0] ) ): continue
+                if read_nt == wt_nt:
+                        simple[line][idx_to_use] = 0
+                else:
+                        if read_nt == 'N':										# Ignore reads with N because not necessarily mutated
+                                simple[line][idx_to_use] = 0
+                        else:
+                                if ( wt_nt != '-' ): # note recording insertions -- fix this!
+                                        simple[line][idx_to_use] = 1
+                                        pair = wt_nt+read_nt
+                                        mutations[line][mutdict[pair]][idx_to_use] += 1	# Record 2D array of mutation frequencies for each sequence in Read 1
+
+
 def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutation and 0 at each WT nt
 
 	# Get WT sequence, rev comp, and length
@@ -80,10 +105,13 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	# Grab cDNA sequences from fastq files
 	seqs_read1 = []
 	for i, line in enumerate(args.read1fastq):
+                if ( i % 10000 == 0 ): print 'Read in line ', i
 		if i % 4 == 1:
 			seqs_read1.append( line.strip() )
+        print 'Finished reading in file for Read 1. Number of seqs:', len( seqs_read1)
+
 	seqs_read2 = []
-	for i, line in enumerate(args.read2fastq):
+        for i, line in enumerate(args.read2fastq):
 		if i % 4 == 1:
 			seqs_read2.append( line.strip() )
 
@@ -92,12 +120,12 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	f_log.write( '\nTruncated WT rev sequence: ' + WTrev_trunc )
 	f_log.write( '\nFirst read 1 sequence:     ' + seqs_read1[1] + '\n' )
 	WTfwd_trunc = WTfwd[0:len(seqs_read2[1])]
-	f_log.write( '\nTruncated WT fwd sequence: ' + WTfwd_trunc )
-	f_log.write( '\nFirst read 2 sequence:     ' + seqs_read2[1] + '\n' )
+        f_log.write( '\nTruncated WT fwd sequence: ' + WTfwd_trunc )
+        f_log.write( '\nFirst read 2 sequence:     ' + seqs_read2[1] + '\n' )
 
 	if len(seqs_read2) != len(seqs_read1):
 		print 'Number of sequences in read 1 and read 2 FASTQs are unequal!'
-		exit()
+                exit()
 
 	# Align WT sequence to read1 and read2
 	f_log.write( '\nStarting alignment at ' + timeStamp() )
@@ -107,23 +135,30 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	f_seqs_read2 = open(currdir + '/' + args.outprefix + '_Read2aligned.txt','w')
         GAP_OPEN   = -5 # originally -5
         GAP_EXTEND = -1
-	for line, seq in enumerate(seqs_read1):
-                seq_read1 = seqs_read1[ line ]
-                pos = seq_read1.find( 'AGATCGGAAGAGC' ) # position of ligation adapter. Easy to recognize.
-                if ( pos > -1 ): seq_read1 = seq_read1[ :pos];
-                WTrev_trunc = WTrev[:pos]
+	for line, (seq_read1,seq_read2) in enumerate(zip(seqs_read1,seqs_read2)):
+                if ( line % 10000 == 0): print 'Doing alignment for line ', line, ' out of ', len( seq_read1 )
+                maxpos1 = seq_read1.find( 'AGATCGGAAGAGC' ) # position of ligation adapter. Easy to recognize.
+                seq_read1 = seq_read1[:maxpos1];
+                WTrev_trunc = WTrev[:maxpos1]
 		aligned_read1 = nw.global_align( WTrev_trunc, seq_read1, gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
 
-                pos = aligned_read1[1].find( '----' )
-                if ( pos > -1 ): aligned_read1 = (aligned_read1[0][ :pos], aligned_read1[1][ :pos ] )
 		seqs_read1_align.append( aligned_read1 )
-		f_seqs_read1.write( aligned_read1[1]+' '+aligned_read1[0] )
-		f_seqs_read1.write('\n')
+		f_seqs_read1.write( aligned_read1[0]+'\n'+aligned_read1[1]+'\n\n' )
 
-		aligned_read2 = nw.global_align( WTfwd_trunc, seqs_read2[line], gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
+                # do other read. Have some information for where it starts based on where ligation site showed up in read1.
+                # STILL NEED TO DO A BETTER ALIGNMENT THOUGH.
+                maxpos2 = WTlen - maxpos1 + len( seq_read2 )
+                WTfwd_trunc = WTfwd[ (WTlen - maxpos1) : maxpos2]
+                seq_read2 = seq_read2[ : len( WTfwd_trunc) ]
+                aligned_read2 = nw.global_align( WTfwd_trunc, seq_read2, gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
+
+                # need to pad.
+                pad_sequence = ''
+                for k in range( WTlen - maxpos1 ): pad_sequence += 'N'
+                aligned_read2 = ( pad_sequence+aligned_read2[0],  pad_sequence+aligned_read2[1] )
 		seqs_read2_align.append( aligned_read2 )
-		f_seqs_read2.write( aligned_read2[1]+' '+aligned_read2[0])
-		f_seqs_read2.write('\n')
+		f_seqs_read2.write( aligned_read2[0]+'\n'+aligned_read2[1]+'\n\n')
+
 	f_log.write( '\nAlignment finished at ' + timeStamp() )
 	f_seqs_read1.close()
 	f_seqs_read2.close()
@@ -131,56 +166,40 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	# Compare WT sequence to both read1 and read2 and build simple file
 	simple = [[0 for col in range(WTlen)] for row in range(len(seqs_read1_align))]			# initialize simple array for recording mutations per position per read in binary
 	mutations = np.zeros([len(seqs_read1_align),20,WTlen])
-	mutdict = {'AT':0 ,'AG':1 ,'AC':2 ,'AN':3 ,'A-':4,
-                   'TA':5 ,'TG':6 ,'TC':7 ,'TN':8 ,'T-':9,
-                   'GA':10,'GT':11,'GC':12,'GN':13,'G-':14,
-                   'CA':15,'CT':16,'CG':17,'CN':18,'C-':19}
-			# Dictionary includes all potential mutations, e.g. A to T, G, C, del, or N (ambiguous read, not counted); del = '-'
 	mut_projection = np.zeros([20,WTlen])
 
-        print_out_problem = False
+        print_out_problem = 0
         for line, seq_align in enumerate(seqs_read1_align):
-                idx = -1
-                if line == 1 : print seq_align[0]+'\n'+seq_align[1]+'\n'
-                for count,wt_nt in enumerate( seq_align[0] ): # should be wild type sequence
-                        if wt_nt != '-': idx += 1
-                        read_nt = seq_align[1][count]
-                        if read_nt == wt_nt:
-                                simple[line][WTlen-idx-1] = 0
-                        else:
-                                if read_nt == 'N':										# Ignore reads with N because not necessarily mutated
-                                        simple[line][WTlen-idx-1] = 0
-                                else:
-                                        if ( wt_nt != '-' ): # note recording insertions -- fix this!
-                                                if ( line == 1 ): print 'mismatch: ', idx, wt_nt, '-->', read_nt
-                                                simple[line][WTlen-idx-1] = 1
-                                                pair = wt_nt+read_nt
-                                                mutations[line][mutdict[pair]][WTlen-idx-1] += 1	# Record 2D array of mutation frequencies for each sequence in Read 1
+                if ( line % 10000 == 0): print 'Doing mutation assignment for line ', line, ' out of ', len( seqs_read1_align )
+                record_mutations( seq_align, line, simple, mutations, direction = 'reverse' )
 
-                if not print_out_problem and simple[line].count(1) > 20:
-                     print_out_problem = True
+                if False and print_out_problem < 10 and simple[line].count(1) > 10:
+                     print
+                     print
                      print 'Problem line: ', line+1, ' has ', simple[line].count(1), ' mutations'
-                     print seq_align[0]+'\n'+seq_align[1]+'\n'
+                     print seq_align[0]+'\n'+seq_align[1]
+                     muts = ''
+                     for (idx,(nt1,nt2)) in enumerate( zip( seq_align[0],seq_align[1] ) ):
+                             if nt1 == nt2:
+                                     muts += ' '
+                             else:
+                                     muts += 'X'
+                     print muts
+                     print 'READ1: ', seqs_read1[ line ]
+                     print 'READ2: ', seqs_read2[ line ]
+                     print_out_problem += 1
 
-        if False: # off for now.
-                for idx, nt in enumerate(WTfwd_trunc):
-                        for line, seq in enumerate(seqs_read2_align):
-                                if seq[idx] == nt:
-                                        simple[line][idx] = 0
-                                elif seq[idx] != nt:
-                                        if seq[idx] == 'N':
-                                                simple[line][idx] = 0
-                                        else:
-                                                simple[line][idx] = 1
-                                                pair = nt+seq[idx]
-                                                mutations[line][mutdict[pair]][idx] += 1			# Record 2D array of mutation frequencies for each sequence in Read 2
+        for line, seq_align in enumerate(seqs_read2_align):
+                if ( line % 10000 == 0): print 'Doing mutation assignment for line ', line, ' out of ', len( seqs_read2_align )
+                record_mutations( seq_align, line, simple, mutations, direction = 'forward' )
 
 	# Project mutation frequencies across sequences, filtering out reads with 10 or more
 	count = 0
 	mut_count = np.sum(mutations, axis=(1,2))
-	for line, seq in enumerate(seqs_read2_align):
+        MUT_CUTOFF = 10
+	for line, seq in enumerate(seqs_read1_align):
 		# print np.sum(mutations, axis=(1,2))
-		if mut_count[line] < 10:
+		if mut_count[line] < MUT_CUTOFF:
 			mut_projection = mut_projection + mutations[line]
 			count += 1
 	# print str(count) # should match line "Number of sequences with fewer than 10 mismatches to WT" in .log file (assessed in simple_to_rdat fxn)
@@ -221,6 +240,7 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[] ):
 	if sfilein == 0:											# If simple array was generated by fastq_to_simple
 		mut_idxs = []
 		for line, dat in enumerate(simple):
+                        if ( line % 10000 == 0): print 'Doing mutation assignment for line ', line, ' out of ', len( simple )
 			numreads = numreads + 1
 			mut_idxs.append(array([idx for idx, val in enumerate(dat) if val == 1]))
 
@@ -246,7 +266,8 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[] ):
 
 	# Build data arrays
 	count = 0
-	for indices in mut_idxs:
+	for (line,indices) in enumerate( mut_idxs ):
+                if ( line % 10000 == 0): print 'Doing data2d compilation for line  ', line, ' out of ', len( mut_idxs )
 		# indices -= seqpos[0]									# Adjust sequence position by starting sequence position
 		if len(indices) >= 10:
 			continue
