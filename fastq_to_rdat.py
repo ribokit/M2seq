@@ -71,6 +71,19 @@ mutdict = {'AT':0 ,'AG':1 ,'AC':2 ,'AN':3 ,'A-':4,
            'GA':10,'GT':11,'GC':12,'GN':13,'G-':14,
            'CA':15,'CT':16,'CG':17,'CN':18,'C-':19}
 
+def get_sw_align( sw, WTrev_trunc, seq_read1 ):
+        alignment = sw.align( WTrev_trunc, seq_read1 )
+        blah = StringIO()
+        alignment.dump( out  = blah )
+        q = ''
+        r = ''
+        print blah.getvalue()
+        for row in blah.getvalue().split( '\n' ):
+                if row[:5] == 'Query': q =  row.split()[ 2 ]
+                if row[:5] == 'Ref  ': r =  row.split()[ 3 ]
+        return (q,r)
+
+
 def record_mutations( seq_align, line, simple, mutations,  direction = 'reverse'):
         idx = -1
         for count,(wt_nt,read_nt) in enumerate( zip( seq_align[0], seq_align[1] ) ):
@@ -90,18 +103,25 @@ def record_mutations( seq_align, line, simple, mutations,  direction = 'reverse'
                                         mutations[line][mutdict[pair]][idx_to_use] += 1	# Record 2D array of mutation frequencies for each sequence in Read 1
 
 
-def get_sw_align( sw, WTrev_trunc, seq_read1 ):
-        alignment = sw.align( WTrev_trunc, seq_read1 )
-        blah = StringIO()
-        alignment.dump( out  = blah )
-        q = ''
-        r = ''
-        print blah.getvalue()
-        for row in blah.getvalue().split( '\n' ):
-                if row[:5] == 'Query': q =  row.split()[ 2 ]
-                if row[:5] == 'Ref  ': r =  row.split()[ 3 ]
-        return (q,r)
+def truncate_junk_at_end( aligned_read1 ):
+        q = aligned_read1[ 0 ]
+        r = aligned_read1[ 1 ]
+        MIN_MATCH = 4 # number of consecutive nts that must match to determine if we are in a 'good' region.
+        pos = len( q )
+        while pos > (MIN_MATCH-1):
+                if ( q[ pos-MIN_MATCH : pos ] == r[ pos-MIN_MATCH : pos ] ):
+                        break
+                pos -= 1
+        aligned_read_truncate = ( q[:pos],r[:pos] )
+        num_junk_nts = 0
+        for char in r[pos:]:
+                if char != '-': num_junk_nts += 1
 
+        maxpos_wt = 0
+        for char in q[:pos]:
+                if char != '-': maxpos_wt += 1
+
+        return ( aligned_read_truncate, num_junk_nts, maxpos_wt )
 
 def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutation and 0 at each WT nt
 
@@ -149,8 +169,8 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
         start_pos        = []
 	f_seqs_read1 = open(currdir + '/' + args.outprefix + '_Read1aligned.txt','w')
 	f_seqs_read2 = open(currdir + '/' + args.outprefix + '_Read2aligned.txt','w')
-        GAP_OPEN   = -5 # originally -5
-        GAP_EXTEND = -1 # originally -1
+        NW_GAP_OPEN   = -5 # originally -5
+        NW_GAP_EXTEND = -1 # originally -1
         #scoring = swalign.NucleotideScoringMatrix(match = 2, mismatch = -1)
         #sw = swalign.LocalAlignment(scoring,gap_penalty=-3,gap_extension_penalty=-1)
 	for line, (seq_read1,seq_read2) in enumerate(zip(seqs_read1,seqs_read2)):
@@ -161,20 +181,25 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
                 if ( maxpos1 == -1 ): maxpos1 = WTlen
                 seq_read1   = seq_read1[:maxpos1];
                 WTrev_trunc = WTrev[    :maxpos1]
-                aligned_read1 = nw.global_align( WTrev_trunc, seq_read1, gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
+                aligned_read1 = nw.global_align( WTrev_trunc, seq_read1, gap_open=NW_GAP_OPEN, gap_extend=NW_GAP_EXTEND )
                 #aligned_read1 = get_sw_align( sw, WTrev_trunc, seq_read1 )
+
+                # Following edits aligned_read1 to remove junk.
+                # maxpos1_truncate - maxpos1 will be amount of 'junk' to trim off ends
+                ( aligned_read1, num_junk_nts, maxpos1 ) = truncate_junk_at_end( aligned_read1 )
+                seq_read2   = seq_read2[ num_junk_nts : ] # that's junk
 
 		seqs_read1_align.append( aligned_read1 )
 		f_seqs_read1.write( aligned_read1[0]+'\n'+aligned_read1[1]+'\n\n' )
 
                 # do forward read. Have some information for where it starts based on where ligation site showed up in read1.
-                maxpos2 = WTlen - maxpos1 + len( seq_read2 )
-                WTfwd_trunc = WTfwd[     (WTlen - maxpos1) : maxpos2           ]
-                seq_read2   = seq_read2[                   : len( WTfwd_trunc) ]
-                aligned_read2 = nw.global_align( WTfwd_trunc, seq_read2, gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
+                maxpos2     = WTlen - maxpos1 + len( seq_read2 )
+                WTfwd_trunc = WTfwd[      WTlen - maxpos1    : maxpos2           ]
+                seq_read2   = seq_read2[  : len( WTfwd_trunc) ]
+                aligned_read2 = nw.global_align( WTfwd_trunc, seq_read2, gap_open=NW_GAP_OPEN, gap_extend=NW_GAP_EXTEND )
                 #aligned_read2 = get_sw_align( sw, WTfwd_trunc, seq_read2 )
 
-                # need to pad.
+                # need to pad? actually should get rid of this, and just keep track of start_pos
                 pad_sequence = ''
                 for k in range( WTlen - maxpos1 ): pad_sequence += 'N'
                 aligned_read2 = ( pad_sequence+aligned_read2[0],  pad_sequence+aligned_read2[1] )
