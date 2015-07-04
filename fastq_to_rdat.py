@@ -138,9 +138,10 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	f_log.write( '\nReverse complement for matching to Read 1:\n' + WTrev + '\n' )
 
 	# Grab cDNA sequences from fastq files
+        # Probably should not load these all into memory at once.
 	seqs_read1 = []
 	for i, line in enumerate(args.read1fastq):
-                if ( i % 10000 == 0 ): print 'Read in line ', i
+                if ( i % 40000 == 0 ): print 'Read in line ', i/4
 		if i % 4 == 1:
 			seqs_read1.append( line.strip() )
         print 'Finished reading in file for Read 1. Number of seqs:', len( seqs_read1)
@@ -175,7 +176,7 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
         #scoring = swalign.NucleotideScoringMatrix(match = 2, mismatch = -1)
         #sw = swalign.LocalAlignment(scoring,gap_penalty=-3,gap_extension_penalty=-1)
 	for line, (seq_read1,seq_read2) in enumerate(zip(seqs_read1,seqs_read2)):
-                if ( line % 10000 == 0): print 'Doing alignment for line ', line, ' out of ', len( seq_read1 )
+                if ( line % 10000 == 0): print 'Doing alignment for line ', line, ' out of ', len( seqs_read1 )
                 #if ( line > 10 ): break
                 # do reverse read
                 maxpos1     = seq_read1.find( 'AGATCGGAAGAGC' ) # position of ligation adapter. Easy to recognize.
