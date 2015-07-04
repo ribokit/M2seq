@@ -25,7 +25,9 @@
 import os, sys, time
 import argparse
 import numpy as np
-import nwalign as nw
+#import nwalign as nw
+import swalign
+from cStringIO import StringIO
 import string
 from rdatkit.datahandlers import RDATFile
 from matplotlib.pylab import *
@@ -88,6 +90,19 @@ def record_mutations( seq_align, line, simple, mutations,  direction = 'reverse'
                                         mutations[line][mutdict[pair]][idx_to_use] += 1	# Record 2D array of mutation frequencies for each sequence in Read 1
 
 
+def get_sw_align( sw, WTrev_trunc, seq_read1 ):
+        alignment = sw.align( WTrev_trunc, seq_read1 )
+        blah = StringIO()
+        alignment.dump( out  = blah )
+        q = ''
+        r = ''
+        print blah.getvalue()
+        for row in blah.getvalue().split( '\n' ):
+                if row[:5] == 'Query': q =  row.split()[ 2 ]
+                if row[:5] == 'Ref  ': r =  row.split()[ 3 ]
+        return (q,r)
+
+
 def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutation and 0 at each WT nt
 
 	# Get WT sequence, rev comp, and length
@@ -131,33 +146,44 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	f_log.write( '\nStarting alignment at ' + timeStamp() )
 	seqs_read1_align = []
 	seqs_read2_align = []
+        start_pos        = []
 	f_seqs_read1 = open(currdir + '/' + args.outprefix + '_Read1aligned.txt','w')
 	f_seqs_read2 = open(currdir + '/' + args.outprefix + '_Read2aligned.txt','w')
         GAP_OPEN   = -5 # originally -5
-        GAP_EXTEND = -1
+        GAP_EXTEND = -1  # originally -1
+        match = 2
+        mismatch = -1
+        scoring = swalign.NucleotideScoringMatrix(match, mismatch)
+        sw = swalign.LocalAlignment(scoring,gap_penalty=-2,gap_extension_penalty=-1)
 	for line, (seq_read1,seq_read2) in enumerate(zip(seqs_read1,seqs_read2)):
                 if ( line % 10000 == 0): print 'Doing alignment for line ', line, ' out of ', len( seq_read1 )
-                maxpos1 = seq_read1.find( 'AGATCGGAAGAGC' ) # position of ligation adapter. Easy to recognize.
-                seq_read1 = seq_read1[:maxpos1];
-                WTrev_trunc = WTrev[:maxpos1]
-		aligned_read1 = nw.global_align( WTrev_trunc, seq_read1, gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
+                if ( line > 10 ): break
+                # do reverse read
+                maxpos1     = seq_read1.find( 'AGATCGGAAGAGC' ) # position of ligation adapter. Easy to recognize.
+                if ( maxpos1 == -1 ): maxpos1 = WTlen
+                seq_read1   = seq_read1[:maxpos1];
+                WTrev_trunc = WTrev[    :maxpos1]
+                #aligned_read1 = nw.global_align( WTrev_trunc, seq_read1, gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
+                aligned_read1 = get_sw_align( sw, WTrev_trunc, seq_read1 )
 
 		seqs_read1_align.append( aligned_read1 )
 		f_seqs_read1.write( aligned_read1[0]+'\n'+aligned_read1[1]+'\n\n' )
 
-                # do other read. Have some information for where it starts based on where ligation site showed up in read1.
-                # STILL NEED TO DO A BETTER ALIGNMENT THOUGH.
+                # do forward read. Have some information for where it starts based on where ligation site showed up in read1.
                 maxpos2 = WTlen - maxpos1 + len( seq_read2 )
-                WTfwd_trunc = WTfwd[ (WTlen - maxpos1) : maxpos2]
-                seq_read2 = seq_read2[ : len( WTfwd_trunc) ]
-                aligned_read2 = nw.global_align( WTfwd_trunc, seq_read2, gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
+                WTfwd_trunc = WTfwd[     (WTlen - maxpos1) : maxpos2           ]
+                seq_read2   = seq_read2[                   : len( WTfwd_trunc) ]
+                #aligned_read2 = nw.global_align( WTfwd_trunc, seq_read2, gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
+                aligned_read2 = get_sw_align( sw, WTfwd_trunc, seq_read2 )
 
                 # need to pad.
                 pad_sequence = ''
                 for k in range( WTlen - maxpos1 ): pad_sequence += 'N'
                 aligned_read2 = ( pad_sequence+aligned_read2[0],  pad_sequence+aligned_read2[1] )
+
 		seqs_read2_align.append( aligned_read2 )
 		f_seqs_read2.write( aligned_read2[0]+'\n'+aligned_read2[1]+'\n\n')
+                start_pos.append( WTlen - maxpos1 + 1 ) # for 'simple' output.
 
 	f_log.write( '\nAlignment finished at ' + timeStamp() )
 	f_seqs_read1.close()
@@ -221,9 +247,9 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	f_muts.write('Total reads with < 10 mutations:,' + str(count))
 
 	f_simple = open(currdir + '/' + args.outprefix + '.simple','w')
-	for line in simple:
-		f_simple.write('1' + '\t' + str(WTlen) + '\t')
-		f_simple.write(''.join(map(str,line)) + '\n')
+	for line, simple_line in enumerate(simple):
+		f_simple.write(str(start_pos[ line ]) + '\t' + str(WTlen) + '\t')
+		f_simple.write(''.join(map(str,simple_line[ start_pos[line]-1 : ] )) + '\n')
 	f_simple.close()
 
 	return simple
