@@ -19,7 +19,7 @@ end
 F = zeros( 202,202 );
 num_hits = [];
 pos_cutoff = 1; % nucleotide position to which alignment must extend
-hit_cutoff = 20; % maximum number of hits to allow before recording.
+hit_cutoff = 10; % maximum number of hits to allow before recording.
 for i = 1:length( D{3} );
   if ( mod( i, 10000 ) == 0 ); fprintf( 'Doing %d of %d\n',i,length(D{3}) ); end;
   idx = strfind( char( D{3}( i ) ), '1' );
