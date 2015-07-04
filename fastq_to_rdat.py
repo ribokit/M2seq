@@ -171,11 +171,12 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	f_seqs_read2 = open(currdir + '/' + args.outprefix + '_Read2aligned.txt','w')
         NW_GAP_OPEN   = -5 # originally -5
         NW_GAP_EXTEND = -1 # originally -1
+        # was trying a local alignment algorithm -- wish nwalign had this option.
         #scoring = swalign.NucleotideScoringMatrix(match = 2, mismatch = -1)
         #sw = swalign.LocalAlignment(scoring,gap_penalty=-3,gap_extension_penalty=-1)
 	for line, (seq_read1,seq_read2) in enumerate(zip(seqs_read1,seqs_read2)):
                 if ( line % 10000 == 0): print 'Doing alignment for line ', line, ' out of ', len( seq_read1 )
-                if ( line > 10 ): break
+                #if ( line > 10 ): break
                 # do reverse read
                 maxpos1     = seq_read1.find( 'AGATCGGAAGAGC' ) # position of ligation adapter. Easy to recognize.
                 if ( maxpos1 == -1 ): maxpos1 = WTlen
@@ -203,6 +204,8 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
                 pad_sequence = ''
                 for k in range( WTlen - maxpos1 ): pad_sequence += 'N'
                 aligned_read2 = ( pad_sequence+aligned_read2[0],  pad_sequence+aligned_read2[1] )
+                # should be under an option? these are not actually junk nts, but errors arising at edges of global alignment
+                ( aligned_read2, num_junk_nts2, maxpos2 ) = truncate_junk_at_end( aligned_read2 )
 
 		seqs_read2_align.append( aligned_read2 )
 		f_seqs_read2.write( aligned_read2[0]+'\n'+aligned_read2[1]+'\n\n')
