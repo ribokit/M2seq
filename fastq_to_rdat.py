@@ -25,8 +25,8 @@
 import os, sys, time
 import argparse
 import numpy as np
-#import nwalign as nw
-import swalign
+import nwalign as nw
+#import swalign
 from cStringIO import StringIO
 import string
 from rdatkit.datahandlers import RDATFile
@@ -150,11 +150,9 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	f_seqs_read1 = open(currdir + '/' + args.outprefix + '_Read1aligned.txt','w')
 	f_seqs_read2 = open(currdir + '/' + args.outprefix + '_Read2aligned.txt','w')
         GAP_OPEN   = -5 # originally -5
-        GAP_EXTEND = -1  # originally -1
-        match = 2
-        mismatch = -1
-        scoring = swalign.NucleotideScoringMatrix(match, mismatch)
-        sw = swalign.LocalAlignment(scoring,gap_penalty=-2,gap_extension_penalty=-1)
+        GAP_EXTEND = -1 # originally -1
+        #scoring = swalign.NucleotideScoringMatrix(match = 2, mismatch = -1)
+        #sw = swalign.LocalAlignment(scoring,gap_penalty=-3,gap_extension_penalty=-1)
 	for line, (seq_read1,seq_read2) in enumerate(zip(seqs_read1,seqs_read2)):
                 if ( line % 10000 == 0): print 'Doing alignment for line ', line, ' out of ', len( seq_read1 )
                 if ( line > 10 ): break
@@ -163,8 +161,8 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
                 if ( maxpos1 == -1 ): maxpos1 = WTlen
                 seq_read1   = seq_read1[:maxpos1];
                 WTrev_trunc = WTrev[    :maxpos1]
-                #aligned_read1 = nw.global_align( WTrev_trunc, seq_read1, gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
-                aligned_read1 = get_sw_align( sw, WTrev_trunc, seq_read1 )
+                aligned_read1 = nw.global_align( WTrev_trunc, seq_read1, gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
+                #aligned_read1 = get_sw_align( sw, WTrev_trunc, seq_read1 )
 
 		seqs_read1_align.append( aligned_read1 )
 		f_seqs_read1.write( aligned_read1[0]+'\n'+aligned_read1[1]+'\n\n' )
@@ -173,8 +171,8 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
                 maxpos2 = WTlen - maxpos1 + len( seq_read2 )
                 WTfwd_trunc = WTfwd[     (WTlen - maxpos1) : maxpos2           ]
                 seq_read2   = seq_read2[                   : len( WTfwd_trunc) ]
-                #aligned_read2 = nw.global_align( WTfwd_trunc, seq_read2, gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
-                aligned_read2 = get_sw_align( sw, WTfwd_trunc, seq_read2 )
+                aligned_read2 = nw.global_align( WTfwd_trunc, seq_read2, gap_open=GAP_OPEN, gap_extend=GAP_EXTEND )
+                #aligned_read2 = get_sw_align( sw, WTfwd_trunc, seq_read2 )
 
                 # need to pad.
                 pad_sequence = ''
