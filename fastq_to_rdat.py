@@ -226,22 +226,6 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
                 if ( line % 10000 == 0): print 'Doing mutation assignment for line ', line, ' out of ', len( seqs_read1_align )
                 record_mutations( seq_align, line, simple, mutations, direction = 'reverse' )
 
-                if False and print_out_problem < 10 and simple[line].count(1) > 10:
-                     print
-                     print
-                     print 'Problem line: ', line+1, ' has ', simple[line].count(1), ' mutations'
-                     print seq_align[0]+'\n'+seq_align[1]
-                     muts = ''
-                     for (idx,(nt1,nt2)) in enumerate( zip( seq_align[0],seq_align[1] ) ):
-                             if nt1 == nt2:
-                                     muts += ' '
-                             else:
-                                     muts += 'X'
-                     print muts
-                     print 'READ1: ', seqs_read1[ line ]
-                     print 'READ2: ', seqs_read2[ line ]
-                     print_out_problem += 1
-
         for line, seq_align in enumerate(seqs_read2_align):
                 if ( line % 10000 == 0): print 'Doing mutation assignment for line ', line, ' out of ', len( seqs_read2_align )
                 record_mutations( seq_align, line, simple, mutations, direction = 'forward' )
