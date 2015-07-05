@@ -32,7 +32,7 @@ total_reads = 0;
 num_hits = [];
 
 % Record 2D hits. This is really slow.
-for i = 1:10000; %length( D{3} );
+for i = 1:length( D{3} );
   if ( mod( i, 10000 ) == 0 ); fprintf( 'Doing %d of %d\n',i,length(D{3}) ); end;
   idx = strfind( char( D{3}( i ) ), '1' );
   pos = int32( idx ) + int32( D{1}(i) ) - 1;
