@@ -26,13 +26,14 @@ import os, sys, time
 import argparse
 import numpy as np
 import nwalign as nw
+import sys
 #import swalign
 from cStringIO import StringIO
 import string
 from rdatkit.datahandlers import RDATFile
 from matplotlib.pylab import *
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser( description='Generates a 2D correlated mutational profiling dataset using demultiplexed Read1 and Read 2 files or a .simple file')
 
 parser.add_argument('sequencefile', type=argparse.FileType('r'))
 parser.add_argument('--read1fastq', type=argparse.FileType('r'))
@@ -40,6 +41,8 @@ parser.add_argument('--read2fastq', type=argparse.FileType('r'))
 parser.add_argument('--simplefile', type=argparse.FileType('r'))
 parser.add_argument('--name', type=str, default='PLACEHOLDER')
 parser.add_argument('--offset', type=int, default=0)
+parser.add_argument('--num_hits_cutoff', type=int, help='quality filter: maximum number of hits to allow before recording.', default=10)
+parser.add_argument('--start_pos_cutoff', type=int, help='full-length filter: minimal nucleotide position to which alignment must extend',default=10)
 parser.add_argument('--outprefix', type=str, default='out')
 
 args = parser.parse_args()
@@ -93,12 +96,15 @@ def record_mutations( seq_align, line, simple, mutations,  direction = 'reverse'
                 if ( idx_to_use >= len( simple[0] ) ): continue
                 if read_nt == wt_nt:
                         simple[line][idx_to_use] = 0
+                        in_mismatch = False
                 else:
                         if read_nt == 'N':										# Ignore reads with N because not necessarily mutated
                                 simple[line][idx_to_use] = 0
+                                in_mismatch = False
                         else:
-                                if ( wt_nt != '-' ): # note recording insertions -- fix this!
-                                        simple[line][idx_to_use] = 1
+                                if ( wt_nt != '-' ): # not recording insertions -- fix this!
+                                        #if ( read_nt != '-' ): simple[line][idx_to_use] = 1 # JUST FOR TESTING -- DO NOT RECORD DELETIONS
+                                        simple[line][idx_to_use] = 1 # JUST FOR TESTING -- DO NOT RECORD DELETIONS
                                         pair = wt_nt+read_nt
                                         mutations[line][mutdict[pair]][idx_to_use] += 1	# Record 2D array of mutation frequencies for each sequence in Read 1
 
@@ -122,6 +128,18 @@ def truncate_junk_at_end( aligned_read1 ):
                 if char != '-': maxpos_wt += 1
 
         return ( aligned_read_truncate, num_junk_nts, maxpos_wt )
+
+def collapse_adjacent_mutations( simple ):
+        for line, simple_line in enumerate(simple):
+                last_mismatch = -1
+                for pos, simple_symbol in enumerate(simple_line):
+                        if simple_symbol == 1:
+                                if last_mismatch == -1:
+                                        last_mismatch = pos # entering a mismatch
+                        else:
+                                if last_mismatch > -1:
+                                        for idx in range( last_mismatch, pos-1 ): simple[ line ][ idx ] = 0 # put mutation on right-most nucleotide -- that's where RT messed up.
+                                        last_mismatch = -1 # not in a mismatch anymore
 
 def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutation and 0 at each WT nt
 
@@ -177,7 +195,6 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
         #sw = swalign.LocalAlignment(scoring,gap_penalty=-3,gap_extension_penalty=-1)
 	for line, (seq_read1,seq_read2) in enumerate(zip(seqs_read1,seqs_read2)):
                 if ( line % 10000 == 0): print 'Doing alignment for line ', line, ' out of ', len( seqs_read1 )
-                #if ( line > 10 ): break
                 # do reverse read
                 maxpos1     = seq_read1.find( 'AGATCGGAAGAGC' ) # position of ligation adapter. Easy to recognize.
                 if ( maxpos1 == -1 ): maxpos1 = WTlen
@@ -230,13 +247,14 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
                 if ( line % 10000 == 0): print 'Doing mutation assignment for line ', line, ' out of ', len( seqs_read2_align )
                 record_mutations( seq_align, line, simple, mutations, direction = 'forward' )
 
+        collapse_adjacent_mutations( simple )
+
 	# Project mutation frequencies across sequences, filtering out reads with 10 or more
 	count = 0
 	mut_count = np.sum(mutations, axis=(1,2))
-        MUT_CUTOFF = 10
 	for line, seq in enumerate(seqs_read1_align):
 		# print np.sum(mutations, axis=(1,2))
-		if mut_count[line] < MUT_CUTOFF:
+		if mut_count[line] <= args.num_hits_cutoff and start_pos[line] <= args.start_pos_cutoff:
 			mut_projection = mut_projection + mutations[line]
 			count += 1
 	# print str(count) # should match line "Number of sequences with fewer than 10 mismatches to WT" in .log file (assessed in simple_to_rdat fxn)
@@ -249,24 +267,28 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	f_muts.write('Sequence position:,' + ','.join(map(str,seqpos+1)) + '\n')
 	mut_count = 0
 	for line in mut_projection:
-		if mut_count <= 19:
+		if mut_count <= args.num_hits_cutoff:
 			revdict = dict((v,k) for k,v in mutdict.iteritems())
 			f_muts.write(revdict[mut_count][0] + ' to ' + string.replace(revdict[mut_count][1],'-','del') + ',' + ','.join(map(str,line)) + '\n')
 			mut_count += 1
 		else:
-			f_muts.write('Mutation rate ([total mutations] / [total reads with < 10 mutations])' + ',' + ','.join(map(str,line)) + '\n')
-	f_muts.write('Total reads with < 10 mutations:,' + str(count))
+			f_muts.write('Mutation rate ([total mutations] / [total reads with < '+str(args.num_hits_cutoff)+' mutations])' + ',' + ','.join(map(str,line)) + '\n')
+	f_muts.write('Total reads with < '+str(args.num_hits_cutoff)+' mutations:,' + str(count))
 
+        # could pre-filter by num_hits or start_pos here, to reduce disk output.
 	f_simple = open(currdir + '/' + args.outprefix + '.simple','w')
 	for line, simple_line in enumerate(simple):
 		f_simple.write(str(start_pos[ line ]) + '\t' + str(WTlen) + '\t')
 		f_simple.write(''.join(map(str,simple_line[ start_pos[line]-1 : ] )) + '\n')
 	f_simple.close()
 
-	return simple
+        output_string = '\n\nsimple file created: ' + currdir + '/' + args.outprefix + '.simple'
+        print output_string
+
+	return ( simple, start_pos )
 
 
-def simple_to_rdat( args, sequence, sfilein=0, simple=[] ):
+def simple_to_rdat( args, sequence, sfilein=0, simple=[], start_pos=[] ):
 
 	# Setup: get length and seqpos
 	WTlen = len(sequence)
@@ -278,8 +300,11 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[] ):
 		mut_idxs = []
 		for line, dat in enumerate(simple):
                         if ( line % 10000 == 0): print 'Doing mutation assignment for line ', line, ' out of ', len( simple )
+                        mut_idx = array([idx for idx, val in enumerate(dat) if val == 1])
+                        if ( len( mut_idx ) > args.num_hits_cutoff ): continue
+                        if ( len( start_pos ) > 0 and start_pos[ line ] > args.start_pos_cutoff ): continue
 			numreads = numreads + 1
-			mut_idxs.append(array([idx for idx, val in enumerate(dat) if val == 1]))
+			mut_idxs.append(mut_idx)
 
 	else:														# If .simple file was input
 		max_end_pos = -inf
@@ -289,7 +314,8 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[] ):
 			numreads = numreads + 1
 			fields = line.split('\t')
 			start_pos = int(fields[0])
-			end_pos = int(fields[1])
+			end_pos   = int(fields[1])
+                        if ( start_pos > args.start_pos_cutoff ): continue
 			if end_pos > max_end_pos:
 				max_end_pos = end_pos
 			if start_pos < min_start_pos:
@@ -306,9 +332,9 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[] ):
 	for (line,indices) in enumerate( mut_idxs ):
                 if ( line % 10000 == 0): print 'Doing data2d compilation for line  ', line, ' out of ', len( mut_idxs )
 		# indices -= seqpos[0]									# Adjust sequence position by starting sequence position
-		if len(indices) >= 10:
+		if len(indices) > args.num_hits_cutoff:
 			continue
-		elif len(indices) < 10:
+		else:
 			count += 1
 			for mutpos in indices:
 				data2d[mutpos, indices] += 1 					# Build 2D dataset
@@ -349,12 +375,12 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[] ):
 	r = RDATFile()
 	r.save_a_construct(construct, data, sequence_RNA, structure, offset, annotations, data_annotations, filename, comments, version)
 
-
-	f_log.write( '\n\nRDAT file created: ' + currdir + '/' + args.outprefix + '.rdat')
+        output_string = '\n\nRDAT file created: ' + currdir + '/' + args.outprefix + '.rdat'
+        sys.stdout.write( output_string + '\n' )
+	f_log.write( output_string )
 	f_log.close()
 
 	return
-
 
 
 if __name__ == '__main__':
@@ -371,8 +397,8 @@ if __name__ == '__main__':
 
 	elif args.read1fastq is not None and args.read2fastq is not None:
 		f_log.write( 'FASTQs provided:\t(Read 1) ' + args.read1fastq.name + '\t(Read 2) ' + args.read2fastq.name + '\nGenerating simple data file from FASTQs.\n\n')
-		simple = fastq_to_simple( args )
-		simple_to_rdat( args, sequence, 0, simple )
+                ( simple, start_pos ) = fastq_to_simple( args )
+		simple_to_rdat( args, sequence, 0, simple, start_pos )
 
 	else:
 		f_log.write( 'No data files provided.\n' )
