@@ -34,12 +34,12 @@ from matplotlib.pylab import *
 
 parser = argparse.ArgumentParser( description='Generates a 2D correlated mutational profiling dataset using demultiplexed Read1 and Read 2 files or a .simple file')
 
-parser.add_argument('sequencefile', type=argparse.FileType('r'))
-parser.add_argument('--read1fastq', type=argparse.FileType('r'))
-parser.add_argument('--read2fastq', type=argparse.FileType('r'))
-parser.add_argument('--simplefile', type=argparse.FileType('r'))
-parser.add_argument('--name', type=str, default='PLACEHOLDER')
-parser.add_argument('--offset', type=int, default=0)
+parser.add_argument('sequencefile', type=argparse.FileType('r'), help='name of sequence file in .fasta format')
+parser.add_argument('--read1fastq', type=argparse.FileType('r'), help='name of Illumina R1 fastq file')
+parser.add_argument('--read2fastq', type=argparse.FileType('r'), help='name of Illumina R2 fastq file')
+parser.add_argument('--simplefile', type=argparse.FileType('r'), help='name of .simple file if you have it; otherwise must specify fastq files.')
+parser.add_argument('--name', type=str, help='name of RNA; by default take from sequencefile',default='PLACEHOLDER')
+parser.add_argument('--offset', type=int, help='integer to add to residue numbers to get conventional numbers', default=0)
 parser.add_argument('--num_hits_cutoff', type=int, help='quality filter: maximum number of hits to allow before recording.', default=10)
 parser.add_argument('--start_pos_cutoff', type=int, help='full-length filter: minimal nucleotide position to which alignment must extend',default=10)
 parser.add_argument('--outprefix', type=str, default='out')
