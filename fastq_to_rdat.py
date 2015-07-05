@@ -27,7 +27,6 @@ import argparse
 import numpy as np
 import nwalign as nw
 import sys
-#import swalign
 from cStringIO import StringIO
 import string
 from rdatkit.datahandlers import RDATFile
@@ -73,19 +72,6 @@ mutdict = {'AT':0 ,'AG':1 ,'AC':2 ,'AN':3 ,'A-':4,
            'TA':5 ,'TG':6 ,'TC':7 ,'TN':8 ,'T-':9,
            'GA':10,'GT':11,'GC':12,'GN':13,'G-':14,
            'CA':15,'CT':16,'CG':17,'CN':18,'C-':19}
-
-def get_sw_align( sw, WTrev_trunc, seq_read1 ):
-        alignment = sw.align( WTrev_trunc, seq_read1 )
-        blah = StringIO()
-        alignment.dump( out  = blah )
-        q = ''
-        r = ''
-        print blah.getvalue()
-        for row in blah.getvalue().split( '\n' ):
-                if row[:5] == 'Query': q =  row.split()[ 2 ]
-                if row[:5] == 'Ref  ': r =  row.split()[ 3 ]
-        return (q,r)
-
 
 def record_mutations( seq_align, line, simple, mutations,  direction = 'reverse'):
         idx = -1
@@ -190,9 +176,6 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	f_seqs_read2 = open(currdir + '/' + args.outprefix + '_Read2aligned.txt','w')
         NW_GAP_OPEN   = -5 # originally -5
         NW_GAP_EXTEND = -1 # originally -1
-        # was trying a local alignment algorithm -- wish nwalign had this option.
-        #scoring = swalign.NucleotideScoringMatrix(match = 2, mismatch = -1)
-        #sw = swalign.LocalAlignment(scoring,gap_penalty=-3,gap_extension_penalty=-1)
 	for line, (seq_read1,seq_read2) in enumerate(zip(seqs_read1,seqs_read2)):
                 if ( line % 10000 == 0): print 'Doing alignment for line ', line, ' out of ', len( seqs_read1 )
                 # do reverse read
@@ -201,7 +184,6 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
                 seq_read1   = seq_read1[:maxpos1];
                 WTrev_trunc = WTrev[    :maxpos1]
                 aligned_read1 = nw.global_align( WTrev_trunc, seq_read1, gap_open=NW_GAP_OPEN, gap_extend=NW_GAP_EXTEND )
-                #aligned_read1 = get_sw_align( sw, WTrev_trunc, seq_read1 )
 
                 # Following edits aligned_read1 to remove junk.
                 # maxpos1_truncate - maxpos1 will be amount of 'junk' to trim off ends
@@ -216,7 +198,6 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
                 WTfwd_trunc = WTfwd[      WTlen - maxpos1    : maxpos2           ]
                 seq_read2   = seq_read2[  : len( WTfwd_trunc) ]
                 aligned_read2 = nw.global_align( WTfwd_trunc, seq_read2, gap_open=NW_GAP_OPEN, gap_extend=NW_GAP_EXTEND )
-                #aligned_read2 = get_sw_align( sw, WTfwd_trunc, seq_read2 )
 
                 # need to pad? actually should get rid of this, and just keep track of start_pos
                 pad_sequence = ''
