@@ -40,9 +40,10 @@ parser.add_argument('--read2fastq', type=argparse.FileType('r'), help='name of I
 parser.add_argument('--simplefile', type=argparse.FileType('r'), help='name of .simple file if you have it; otherwise must specify fastq files.')
 parser.add_argument('--name', type=str, help='name of RNA; by default take from sequencefile',default='PLACEHOLDER')
 parser.add_argument('--offset', type=int, help='integer to add to residue numbers to get conventional numbers', default=0)
+parser.add_argument('--outprefix', type=str, default='out')
 parser.add_argument('--num_hits_cutoff', type=int, help='quality filter: maximum number of hits to allow before recording.', default=10)
 parser.add_argument('--start_pos_cutoff', type=int, help='full-length filter: minimal nucleotide position to which alignment must extend',default=10)
-parser.add_argument('--outprefix', type=str, default='out')
+parser.add_argument('--collapse_adjacent_mutations', type=bool, help='if several mutations/indels occur in a row, count them as a single mutation occurring at last position.',default=True)
 
 args = parser.parse_args()
 sequencefile_lines = args.sequencefile.readlines()
@@ -68,12 +69,18 @@ def reverse_complement( sequence ):
 
 
 # Dictionary includes all potential mutations, e.g. A to T, G, C, del, or N (ambiguous read, not counted); del = '-'
-mutdict = {'AT':0 ,'AG':1 ,'AC':2 ,'AN':3 ,'A-':4,
-           'TA':5 ,'TG':6 ,'TC':7 ,'TN':8 ,'T-':9,
-           'GA':10,'GT':11,'GC':12,'GN':13,'G-':14,
-           'CA':15,'CT':16,'CG':17,'CN':18,'C-':19}
+muts = [ 'AT','AG','AC','AN','A-',
+         'TA','TG','TC','TN','T-',
+         'GA','GT','GC','GN','G-',
+         'CA','CT','CG','CN','C-',
+         '-A','-C','-G','-T','-N',
+         'I2','I3','I4','I5','IX',
+         'sequencing_error1', 'sequencing_error2' ]
 
-def record_mutations( seq_align, line, simple, mutations,  direction = 'reverse'):
+mutdict = {}
+for i,mut in enumerate(muts): mutdict[ mut ] = i
+
+def record_mutations( seq_align, line, simple, mutations, match,  direction = 'reverse'):
         idx = -1
         for count,(wt_nt,read_nt) in enumerate( zip( seq_align[0], seq_align[1] ) ):
                 if wt_nt != '-': idx += 1
@@ -81,18 +88,24 @@ def record_mutations( seq_align, line, simple, mutations,  direction = 'reverse'
                 if (direction == 'reverse'): idx_to_use = len( simple[0] ) - idx -1
                 if ( idx_to_use >= len( simple[0] ) ): continue
                 if read_nt == wt_nt:
+                        if simple[line][idx_to_use] == 1:
+                                mutations[line][mutdict['sequencing_error1']][idx_to_use] += 1	# Error in read1 if read2 gets matched
                         simple[line][idx_to_use] = 0
-                        in_mismatch = False
+                        match [line][idx_to_use] = 1	# Record a match.
                 else:
                         if read_nt == 'N':										# Ignore reads with N because not necessarily mutated
                                 simple[line][idx_to_use] = 0
-                                in_mismatch = False
                         else:
-                                if ( wt_nt != '-' ): # not recording insertions -- fix this!
-                                        #if ( read_nt != '-' ): simple[line][idx_to_use] = 1 # JUST FOR TESTING -- DO NOT RECORD DELETIONS
-                                        simple[line][idx_to_use] = 1 # JUST FOR TESTING -- DO NOT RECORD DELETIONS
-                                        pair = wt_nt+read_nt
-                                        mutations[line][mutdict[pair]][idx_to_use] += 1	# Record 2D array of mutation frequencies for each sequence in Read 1
+                                # check if matched before -- record as a sequencer error
+                                if match[line][idx_to_use] == 1 and (read_nt != '-') and (wt_nt != '-'):
+                                        #if ( line == 1 ) :  print line,idx_to_use, wt_nt, read_nt
+                                        assert( simple[line][idx_to_use] == 0 )
+                                        mutations[line][mutdict['sequencing_error2']][idx_to_use] += 1	# Error in read2 if read1 was matched
+                                else:
+                                        simple[line][idx_to_use] = 1
+                                        match [line][idx_to_use] = 0
+                                pair = wt_nt+read_nt
+                                mutations[line][mutdict[pair]][idx_to_use] += 1	# Record 2D array of mutation frequencies for each sequence in Read 1
 
 
 def truncate_junk_at_end( aligned_read1 ):
@@ -216,42 +229,45 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 
 	# Compare WT sequence to both read1 and read2 and build simple file
 	simple = [[0 for col in range(WTlen)] for row in range(len(seqs_read1_align))]			# initialize simple array for recording mutations per position per read in binary
-	mutations = np.zeros([len(seqs_read1_align),20,WTlen])
-	mut_projection = np.zeros([20,WTlen])
+	mutations = np.zeros([len(seqs_read1_align),len(mutdict),WTlen])
+        match = np.zeros([len(seqs_read1_align),WTlen])
+	mut_projection = np.zeros([len(muts),WTlen])
 
         print_out_problem = 0
         for line, seq_align in enumerate(seqs_read1_align):
                 if ( line % 10000 == 0): print 'Doing mutation assignment for line ', line, ' out of ', len( seqs_read1_align )
-                record_mutations( seq_align, line, simple, mutations, direction = 'reverse' )
+                record_mutations( seq_align, line, simple, mutations, match, direction = 'reverse' )
 
         for line, seq_align in enumerate(seqs_read2_align):
                 if ( line % 10000 == 0): print 'Doing mutation assignment for line ', line, ' out of ', len( seqs_read2_align )
-                record_mutations( seq_align, line, simple, mutations, direction = 'forward' )
+                record_mutations( seq_align, line, simple, mutations, match, direction = 'forward' )
 
-        collapse_adjacent_mutations( simple )
+        # If several mutations/indels occur in a row, count them as a single mutation occurring at last position.
+        if args.collapse_adjacent_mutations: collapse_adjacent_mutations( simple )
 
 	# Project mutation frequencies across sequences, filtering out reads with 10 or more
 	count = 0
-	mut_count = np.sum(mutations, axis=(1,2))
+	mut_count = np.sum(mutations[:,:-1,:], axis=(1,2))
 	for line, seq in enumerate(seqs_read1_align):
 		# print np.sum(mutations, axis=(1,2))
 		if mut_count[line] <= args.num_hits_cutoff and start_pos[line] <= args.start_pos_cutoff:
 			mut_projection = mut_projection + mutations[line]
 			count += 1
-	# print str(count) # should match line "Number of sequences with fewer than 10 mismatches to WT" in .log file (assessed in simple_to_rdat fxn)
 
-	mut_projection = np.concatenate([mut_projection, np.sum(mut_projection, axis=1, keepdims=True)], axis=1)			# Total number of each type of mutation across all positions
-	mut_projection = np.concatenate([mut_projection, np.sum(mut_projection, axis=0, keepdims=True) / count], axis=0)	# Mutation frequency at each position
+        # print str(count) # should match line "Number of sequences with fewer than 10 mismatches to WT" in .log file (assessed in simple_to_rdat fxn)
+
+	mut_projection = np.concatenate([mut_projection, np.sum(mut_projection, axis=1, keepdims=True)], axis=1)	        # Total number of each type of mutation across all positions
+        mut_projection = np.concatenate([mut_projection, np.sum(mut_projection, axis=0, keepdims=True) / count], axis=0)	# Mutation frequency at each position
 
 	f_muts = open(currdir + '/' + args.outprefix + '_mutations.csv','w')
 	f_muts.write('Nucleotide:,' + ','.join(sequence) + '\n')
 	f_muts.write('Sequence position:,' + ','.join(map(str,seqpos+1)) + '\n')
-	mut_count = 0
-	for line in mut_projection:
-		if mut_count <= args.num_hits_cutoff:
-			revdict = dict((v,k) for k,v in mutdict.iteritems())
-			f_muts.write(revdict[mut_count][0] + ' to ' + string.replace(revdict[mut_count][1],'-','del') + ',' + ','.join(map(str,line)) + '\n')
-			mut_count += 1
+        revdict = dict((v,k) for k,v in mutdict.iteritems())
+	for mut_count,line in enumerate( mut_projection ):
+		if mut_count < len( muts ):
+                        tag = revdict[mut_count]
+                        if len( tag ) == 2: tag = string.replace(revdict[mut_count][0],'-','del') + ' to ' + string.replace(revdict[mut_count][1],'-','del')
+			f_muts.write( tag + ',' + ','.join(map(str,line)) + '\n')
 		else:
 			f_muts.write('Mutation rate ([total mutations] / [total reads with < '+str(args.num_hits_cutoff)+' mutations])' + ',' + ','.join(map(str,line)) + '\n')
 	f_muts.write('Total reads with < '+str(args.num_hits_cutoff)+' mutations:,' + str(count))
@@ -273,14 +289,14 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[], start_pos=[] ):
 
 	# Setup: get length and seqpos
 	WTlen = len(sequence)
-	seqpos = arange(0, WTlen) + args.offset
+	seqpos = arange(1, WTlen+1) + args.offset
 	numreads = 0
 
 	# Get mutation indices from simple data
 	if sfilein == 0:											# If simple array was generated by fastq_to_simple
 		mut_idxs = []
 		for line, dat in enumerate(simple):
-                        if ( line % 10000 == 0): print 'Doing mutation assignment for line ', line, ' out of ', len( simple )
+                        if ( line % 10000 == 0): print 'Doing simple-to-RDAT mutation assignment for line ', line, ' out of ', len( simple )
                         mut_idx = array([idx for idx, val in enumerate(dat) if val == 1])
                         if ( len( mut_idx ) > args.num_hits_cutoff ): continue
                         if ( len( start_pos ) > 0 and start_pos[ line ] > args.start_pos_cutoff ): continue
@@ -319,7 +335,7 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[], start_pos=[] ):
 			count += 1
 			for mutpos in indices:
 				data2d[mutpos, indices] += 1 					# Build 2D dataset
-				WTdata[0, indices] += 1 						# Build 1D profile
+				WTdata[0, indices] += 1 					# Build 1D profile
 	f_log.write( '\n\nTotal number of sequences: ' + str(numreads) )
 	f_log.write( '\nNumber of sequences with fewer than 10 mismatches to WT (used to get 2D data): ' + str(count) + '\n' )
 
@@ -335,7 +351,7 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[], start_pos=[] ):
 	construct = args.name
 	sequence_RNA = string.replace(sequence,'T','U')
 	structure = ('.'*len(sequence))
-	offset = args.offset - 1
+	offset = args.offset
 	version = 0.34
 	filename = currdir + '/' + args.outprefix + '.rdat'
 	if sfilein == 0:
@@ -347,13 +363,13 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[], start_pos=[] ):
 	data_annotations.append({'mutation':'WT'})
 	for idx, row_idx in enumerate(row_indices):
 		position = seqpos[row_idx] - args.offset
-		data_annotations.append({'mutation':[string.replace(sequence[position],'T','U') + str(position + args.offset) + string.replace(reverse_complement(sequence[position]),'T','U')]})
+		data_annotations.append({'mutation':[string.replace(sequence[position-1],'T','U') + str(position + offset) + 'X']})
 	data = np.concatenate([WTdata, data2d], axis=0)			# combine WT data and 2D data
-
 	# np.set_printoptions(threshold=np.nan)
 	# print str(data[0,:])
 
 	r = RDATFile()
+        # what's the deal with offset? MATLAB scripts add this number to 1, 2, ... N. But Python scripts add this number to 0, 1, ... N-1?
 	r.save_a_construct(construct, data, sequence_RNA, structure, offset, annotations, data_annotations, filename, comments, version)
 
         output_string = '\n\nRDAT file created: ' + currdir + '/' + args.outprefix + '.rdat'
