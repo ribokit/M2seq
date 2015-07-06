@@ -27,7 +27,6 @@ import argparse
 import numpy as np
 import nwalign as nw
 import sys
-from cStringIO import StringIO
 import string
 from rdatkit.datahandlers import RDATFile
 from matplotlib.pylab import *
@@ -44,6 +43,8 @@ parser.add_argument('--outprefix', type=str, default='out')
 parser.add_argument('--num_hits_cutoff', type=int, help='quality filter: maximum number of hits to allow before recording.', default=10)
 parser.add_argument('--start_pos_cutoff', type=int, help='full-length filter: minimal nucleotide position to which alignment must extend',default=10)
 parser.add_argument('--collapse_adjacent_mutations', type=bool, help='if several mutations/indels occur in a row, count them as a single mutation occurring at last position.',default=True)
+parser.add_argument('--ignore_dels', type=bool, help='do not record deletions in simple/rdat files.',    default=False)
+parser.add_argument('--ignore_inserts', type=bool, help='do not record insertions in simple/rdat files.',default=True)
 
 args = parser.parse_args()
 sequencefile_lines = args.sequencefile.readlines()
@@ -73,8 +74,7 @@ muts = [ 'AT','AG','AC','AN','A-',
          'TA','TG','TC','TN','T-',
          'GA','GT','GC','GN','G-',
          'CA','CT','CG','CN','C-',
-         '-A','-C','-G','-T','-N',
-         'I2','I3','I4','I5','IX',
+         '-A','-C','-G','-T','-N', # insertions
          'sequencing_error1', 'sequencing_error2' ]
 
 mutdict = {}
@@ -88,7 +88,10 @@ def record_mutations( seq_align, line, simple, mutations, match,  direction = 'r
                 if (direction == 'reverse'): idx_to_use = len( simple[0] ) - idx -1
                 if ( idx_to_use >= len( simple[0] ) ): continue
                 if read_nt == wt_nt:
-                        if simple[line][idx_to_use] == 1:
+                        # check for errors -- but skip indels -- this is really awful. Should really align READ1 and READ2 to each other *first*, then align to reference sequence.
+                        if simple[line][idx_to_use] == 1 and \
+                           not( mutations[line][mutdict['A-']][idx_to_use] or mutations[line][mutdict['C-']][idx_to_use] or mutations[line][mutdict['T-']][idx_to_use] or mutations[line][mutdict['G-']][idx_to_use]) and \
+                           not( mutations[line][mutdict['-A']][idx_to_use] or mutations[line][mutdict['-C']][idx_to_use] or mutations[line][mutdict['-T']][idx_to_use] or mutations[line][mutdict['-G']][idx_to_use]):
                                 mutations[line][mutdict['sequencing_error1']][idx_to_use] += 1	# Error in read1 if read2 gets matched
                         simple[line][idx_to_use] = 0
                         match [line][idx_to_use] = 1	# Record a match.
@@ -96,7 +99,12 @@ def record_mutations( seq_align, line, simple, mutations, match,  direction = 'r
                         if read_nt == 'N':										# Ignore reads with N because not necessarily mutated
                                 simple[line][idx_to_use] = 0
                         else:
-                                # check if matched before -- record as a sequencer error
+                                pair = wt_nt+read_nt
+                                # note that mutation count are currently crazy -- read1 and read2 are separate -- indels always recorded in mutation, but not in simple
+                                mutations[line][mutdict[pair]][idx_to_use] += 1	# Record 2D array of mutation frequencies for each sequence in Read 1
+                                if args.ignore_dels    and read_nt == '-': continue
+                                if args.ignore_inserts and wt_nt   == '-': continue
+                                # check if matched before -- record as a sequencer error. currently not reverting indels -- see note above.
                                 if match[line][idx_to_use] == 1 and (read_nt != '-') and (wt_nt != '-'):
                                         #if ( line == 1 ) :  print line,idx_to_use, wt_nt, read_nt
                                         assert( simple[line][idx_to_use] == 0 )
@@ -104,8 +112,6 @@ def record_mutations( seq_align, line, simple, mutations, match,  direction = 'r
                                 else:
                                         simple[line][idx_to_use] = 1
                                         match [line][idx_to_use] = 0
-                                pair = wt_nt+read_nt
-                                mutations[line][mutdict[pair]][idx_to_use] += 1	# Record 2D array of mutation frequencies for each sequence in Read 1
 
 
 def truncate_junk_at_end( aligned_read1 ):
@@ -191,32 +197,37 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
         NW_GAP_EXTEND = -1 # originally -1
 	for line, (seq_read1,seq_read2) in enumerate(zip(seqs_read1,seqs_read2)):
                 if ( line % 10000 == 0): print 'Doing alignment for line ', line, ' out of ', len( seqs_read1 )
-                # do reverse read
-                maxpos1     = seq_read1.find( 'AGATCGGAAGAGC' ) # position of ligation adapter. Easy to recognize.
-                if ( maxpos1 == -1 ): maxpos1 = WTlen
+                # A somewhat better workflow here might be to align READ1 and READ2 to each other first,
+                # detect and remove sequencing errors, then do a local alignment of this high-quality sequence into WT.
+                # do READ1 (reverse read)
+                maxpos1     = seq_read1.find( 'AGATCGGAAGAGC' ) # position of ligation adapter. Easy to recognize. Should not hardcode this in, though.
+                if ( maxpos1 == -1 ): maxpos1 = WTlen  # maybe read was not long enough to see adapter
+                # truncation would not be necessary if we used a local align:
                 seq_read1   = seq_read1[:maxpos1];
                 WTrev_trunc = WTrev[    :maxpos1]
                 aligned_read1 = nw.global_align( WTrev_trunc, seq_read1, gap_open=NW_GAP_OPEN, gap_extend=NW_GAP_EXTEND )
 
-                # Following edits aligned_read1 to remove junk.
-                # maxpos1_truncate - maxpos1 will be amount of 'junk' to trim off ends
+                # Following edits aligned_read1 to remove 'junk' nts that SSIII tacks onto the ends of transcripts
+                # note that maxpos1 is updated (position at which reverse read stops, in WTrev numbering)
                 ( aligned_read1, num_junk_nts, maxpos1 ) = truncate_junk_at_end( aligned_read1 )
-                seq_read2   = seq_read2[ num_junk_nts : ] # that's junk
 
 		seqs_read1_align.append( aligned_read1 )
 		f_seqs_read1.write( aligned_read1[0]+'\n'+aligned_read1[1]+'\n\n' )
 
                 # do forward read. Have some information for where it starts based on where ligation site showed up in read1.
-                maxpos2     = WTlen - maxpos1 + len( seq_read2 )
-                WTfwd_trunc = WTfwd[      WTlen - maxpos1    : maxpos2           ]
+                seq_read2   = seq_read2[ num_junk_nts : ] # remove the junk (was 3' in read1; is 5' in read2)
+                maxpos2     = WTlen - maxpos1 + len( seq_read2 ) # where read2 should end in WTfwd
+                WTfwd_trunc = WTfwd[      WTlen - maxpos1    : maxpos2           ] # sometimes maxpos2 is beyond WTlen -- then this is slightly shorter than seq_read2
                 seq_read2   = seq_read2[  : len( WTfwd_trunc) ]
                 aligned_read2 = nw.global_align( WTfwd_trunc, seq_read2, gap_open=NW_GAP_OPEN, gap_extend=NW_GAP_EXTEND )
 
+                # In case RT stopped before 5' end of RNA (maxpos1 < WTlen):
                 # need to pad? actually should get rid of this, and just keep track of start_pos
                 pad_sequence = ''
                 for k in range( WTlen - maxpos1 ): pad_sequence += 'N'
                 aligned_read2 = ( pad_sequence+aligned_read2[0],  pad_sequence+aligned_read2[1] )
                 # should be under an option? these are not actually junk nts, but errors arising at edges of global alignment
+                # just used here for trimming aligned_read2
                 ( aligned_read2, num_junk_nts2, maxpos2 ) = truncate_junk_at_end( aligned_read2 )
 
 		seqs_read2_align.append( aligned_read2 )
@@ -285,6 +296,36 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	return ( simple, start_pos )
 
 
+
+def output_rdat( filename, args, sequence, row_indices, seqpos, WTdata, data2d, f_log, sfilein ):
+        # Output data and annotations to RDAT file
+	construct = args.name
+	sequence_RNA = string.replace(sequence,'T','U')
+	structure = ('.'*len(sequence))
+	offset = args.offset
+	version = 0.34
+	if sfilein == 0:
+		comments = 'Created from %s and %s using fastq_to_rdat.py\n' % (args.read1fastq.name, args.read2fastq.name)
+	else:
+		comments = 'Created from %s using fastq_to_rdat.py\n' % (args.simplefile.name)
+	annotations = {'experimentType:MutationalProfiling'}
+	data_annotations = []
+	data_annotations.append({'mutation':'WT'})
+	for idx, row_idx in enumerate(row_indices):
+		position = seqpos[row_idx] - offset
+		data_annotations.append({'mutation':[string.replace(sequence[position-1],'T','U') + str(position + offset) + 'X']})
+	data = np.concatenate([WTdata, data2d], axis=0)			# combine WT data and 2D data
+	# np.set_printoptions(threshold=np.nan)
+	# print str(data[0,:])
+
+	r = RDATFile()
+        # what's the deal with offset? MATLAB scripts add this number to 1, 2, ... N. But Python scripts add this number to 0, 1, ... N-1?
+	r.save_a_construct(construct, data, sequence_RNA, structure, offset, annotations, data_annotations, filename, comments, version)
+
+        output_string = '\n\nRDAT file created: ' + currdir + '/' + args.outprefix + '.rdat'
+        sys.stdout.write( output_string + '\n' )
+	f_log.write( output_string )
+
 def simple_to_rdat( args, sequence, sfilein=0, simple=[], start_pos=[] ):
 
 	# Setup: get length and seqpos
@@ -329,52 +370,38 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[], start_pos=[] ):
 	for (line,indices) in enumerate( mut_idxs ):
                 if ( line % 10000 == 0): print 'Doing data2d compilation for line  ', line, ' out of ', len( mut_idxs )
 		# indices -= seqpos[0]									# Adjust sequence position by starting sequence position
-		if len(indices) > args.num_hits_cutoff:
-			continue
-		else:
-			count += 1
-			for mutpos in indices:
-				data2d[mutpos, indices] += 1 					# Build 2D dataset
-				WTdata[0, indices] += 1 					# Build 1D profile
+                assert( len(indices) <= args.num_hits_cutoff )
+                count += 1
+                if len( indices ) > 0:
+                        WTdata[ 0, indices] += 1 					# Build 1D profile
+                for mutpos in indices:
+                        data2d[mutpos, indices] += 1 					# Build 2D dataset
 	f_log.write( '\n\nTotal number of sequences: ' + str(numreads) )
 	f_log.write( '\nNumber of sequences with fewer than 10 mismatches to WT (used to get 2D data): ' + str(count) + '\n' )
 
+        # normalizes to total number of reads -- should be a true 'modification fraction'
+        WTdata_reactivity = WTdata/count
+        # normalizes to total number of hits -- original choice
+	WTdata_norm = WTdata/WTdata.sum()
+
 	# Normalize by total signal in row and store row indices for building RDAT file
 	row_indices = []
+        data2d_reactivity = 0 * data2d
+        data2d_norm       = 0 * data2d
 	for row_idx in xrange(data2d.shape[0]):
 		if data2d[row_idx,:].sum() > 0*data2d.shape[1]:
-			data2d[row_idx, :] /= data2d[row_idx, :].sum()
+                        # normalizes to total number of reads with modification at row_idx position -- should be a true 'modification fraction'
+                        data2d_reactivity[row_idx, :] = data2d[row_idx,:] / data2d[ row_idx, row_idx ]
+                        # normalizes to total number of hits -- original choice
+			data2d_norm[row_idx, :] = data2d[ row_idx, : ] / data2d[row_idx, :].sum()
 		row_indices.append(row_idx)
-	WTdata /= WTdata.sum()
 
-	# Output data and annotations to RDAT file
-	construct = args.name
-	sequence_RNA = string.replace(sequence,'T','U')
-	structure = ('.'*len(sequence))
-	offset = args.offset
-	version = 0.34
+	filename = currdir + '/' + args.outprefix + '.reactivity.rdat'
+        output_rdat( filename, args, sequence, row_indices, seqpos, WTdata_reactivity, data2d_reactivity, f_log, sfilein )
+
 	filename = currdir + '/' + args.outprefix + '.rdat'
-	if sfilein == 0:
-		comments = 'Created from %s and %s using fastq_to_rdat.py\n' % (args.read1fastq.name, args.read2fastq.name)
-	else:
-		comments = 'Created from %s using fastq_to_rdat.py\n' % (args.simplefile.name)
-	annotations = {'experimentType:MutationalProfiling'}
-	data_annotations = []
-	data_annotations.append({'mutation':'WT'})
-	for idx, row_idx in enumerate(row_indices):
-		position = seqpos[row_idx] - args.offset
-		data_annotations.append({'mutation':[string.replace(sequence[position-1],'T','U') + str(position + offset) + 'X']})
-	data = np.concatenate([WTdata, data2d], axis=0)			# combine WT data and 2D data
-	# np.set_printoptions(threshold=np.nan)
-	# print str(data[0,:])
+        output_rdat( filename, args, sequence, row_indices, seqpos, WTdata_norm, data2d_norm, f_log, sfilein )
 
-	r = RDATFile()
-        # what's the deal with offset? MATLAB scripts add this number to 1, 2, ... N. But Python scripts add this number to 0, 1, ... N-1?
-	r.save_a_construct(construct, data, sequence_RNA, structure, offset, annotations, data_annotations, filename, comments, version)
-
-        output_string = '\n\nRDAT file created: ' + currdir + '/' + args.outprefix + '.rdat'
-        sys.stdout.write( output_string + '\n' )
-	f_log.write( output_string )
 	f_log.close()
 
 	return
