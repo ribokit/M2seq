@@ -31,6 +31,8 @@ coverage = zeros( N, N );
 total_reads = 0;
 num_hits = [];
 
+seqpos = [1:N]+offset;
+checklines = [];
 % Record 2D hits. This is really slow.
 for i = 1:length( D{3} );
   if ( mod( i, 10000 ) == 0 ); fprintf( 'Doing %d of %d\n',i,length(D{3}) ); end;
@@ -42,6 +44,9 @@ for i = 1:length( D{3} );
       covered_pos = [D{1}(i) : D{2}(i)];
       % keep track of which residue pairs had a chance of being covered.
       coverage( covered_pos, covered_pos ) = coverage( covered_pos, covered_pos ) + 1; 
+      if  ~isempty(find(seqpos( pos )==129)) & ~isempty(find(seqpos(pos)==193))
+	checklines = [checklines, i];
+      end
       for m = pos
 	F0( m, pos ) = F0( m, pos ) + 1;
       end
@@ -57,7 +62,6 @@ F1 = F1/total_reads;
 
 fprintf( 'Mean number of hits: %5.1f\n', mean( num_hits ) );
 
-seqpos = [1:N]+offset;
 image( seqpos, seqpos,  F/100 )
 colormap( 1 - gray(100 ) );
 
