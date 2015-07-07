@@ -212,7 +212,9 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 
                 # Following edits aligned_read1 to remove 'junk' nts that SSIII tacks onto the ends of transcripts
                 # note that maxpos1 is updated (position at which reverse read stops, in WTrev numbering)
+                if ( line == 0 ): print maxpos1
                 ( aligned_read1, num_junk_nts, maxpos1 ) = truncate_junk_at_end( aligned_read1 )
+                if ( line == 0 ): print maxpos1
 
 		seqs_read1_align.append( aligned_read1 )
 		f_seqs_read1.write( aligned_read1[0]+'\n'+aligned_read1[1]+'\n\n' )
@@ -235,7 +237,7 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 
 		seqs_read2_align.append( aligned_read2 )
 		f_seqs_read2.write( aligned_read2[0]+'\n'+aligned_read2[1]+'\n\n')
-                start_pos.append( WTlen - maxpos1 ) # for 'simple' output.
+                start_pos.append( WTlen - maxpos1 + 1 ) # for 'simple' output.
 
 	f_log.write( '\nAlignment finished at ' + timeStamp() )
 	f_seqs_read1.close()
@@ -260,7 +262,8 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
         if args.collapse_adjacent_mutations: collapse_adjacent_mutations( simple )
 
         # truncate simple to start at start_pos
-        for (line,simple_line) in enumerate( simple ): simple[ line ] = simple_line[ (start_pos[line] - 1): ]
+        for (line,simple_line) in enumerate( simple ):
+                simple[ line ] = simple_line[ (start_pos[line] - 1): ]
 
 	# Project mutation frequencies across sequences, filtering out reads with 10 or more
 	count = 0
@@ -293,7 +296,7 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	f_simple = open(currdir + '/' + args.outprefix + '.simple','w')
 	for line, simple_line in enumerate(simple):
 		f_simple.write(str(start_pos[ line ]) + '\t' + str(WTlen) + '\t')
-		f_simple.write(''.join(map(str,simple_line[ start_pos[line]-1 : ] )) + '\n')
+		f_simple.write(''.join(map(str,simple_line )) + '\n')
 	f_simple.close()
 
         output_string = '\n\nsimple file created: ' + currdir + '/' + args.outprefix + '.simple'
@@ -371,15 +374,18 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[], start_pos=[] ):
                         if ( line % 10000 == 0): print 'Doing simple-to-RDAT stop assignment for line ', line, ' out of ', len( simple )
                         start_pos_to_use = start_pos[ line ]
                         if ( mut_counts[line] > args.num_hits_cutoff ): continue
-                        assert ( start_pos_to_use  <= WTlen )
-                        if ( start_pos_to_use == WTlen ): continue
-                        start_pos_counts[ 0, start_pos_to_use - 1 ] += 1
+                        assert ( start_pos_to_use  <= (WTlen + 1) )
+                        if ( start_pos_to_use > WTlen ): continue
+                        mod_pos = start_pos_to_use - 1
+                        # note further offset: mod_pos=0 means *no modifications*; mod_pos = 1 means modification at position 1
+                        # if we swtich to to 2D readout, maybe should decrement (add -1). Then no mod would actually *wrap* to WTlen (?)
+                        start_pos_counts[ 0, mod_pos ] += 1
                 # get reactivities, using Fi/[F0 + F1 ... + Fi] expression.
                 stop_reactivity = np.zeros((1,WTlen))
                 sum_counts = start_pos_counts[ 0, 0 ]
                 for (idx,counts) in enumerate(start_pos_counts[0,1:]):
                         sum_counts += counts
-                        stop_reactivity[0,idx] = ( float(counts)/sum_counts )
+                        stop_reactivity[0, idx - 1] = ( float(counts)/sum_counts )
                 filename = currdir + '/' + args.outprefix + '.stop_reactivity.rdat'
                 output_rdat( filename, args, sequence, [], seqpos, stop_reactivity, np.zeros((0,WTlen)), f_log, sfilein )
 
