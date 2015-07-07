@@ -162,7 +162,7 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 	f_log.write( '\nReverse complement for matching to Read 1:\n' + WTrev + '\n' )
 
 	# Grab cDNA sequences from fastq files
-        # Probably should not load these all into memory at once.
+        # Probably should not load these all into memory at once -- could stream through use of readline().
 	seqs_read1 = []
 	for i, line in enumerate(args.read1fastq):
                 if ( i % 40000 == 0 ): print 'Read in line ', i/4
@@ -204,7 +204,7 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
                 # detect and remove sequencing errors, then do a local alignment of this high-quality sequence into WT.
                 # do READ1 (reverse read)
                 maxpos1     = seq_read1.find( 'AGATCGGAAGAGC' ) # position of ligation adapter. Easy to recognize. Should not hardcode this in, though.
-                if ( maxpos1 == -1 ): maxpos1 = WTlen  # maybe read was not long enough to see adapter
+                if ( maxpos1 == -1 ): maxpos1 = WTlen - 1  # maybe read was not long enough to see adapter
                 # truncation would not be necessary if we used a local align:
                 seq_read1   = seq_read1[:maxpos1];
                 WTrev_trunc = WTrev[    :maxpos1]
@@ -235,7 +235,7 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 
 		seqs_read2_align.append( aligned_read2 )
 		f_seqs_read2.write( aligned_read2[0]+'\n'+aligned_read2[1]+'\n\n')
-                start_pos.append( WTlen - maxpos1 + 1 ) # for 'simple' output.
+                start_pos.append( WTlen - maxpos1 ) # for 'simple' output.
 
 	f_log.write( '\nAlignment finished at ' + timeStamp() )
 	f_seqs_read1.close()
@@ -258,6 +258,9 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 
         # If several mutations/indels occur in a row, count them as a single mutation occurring at last position.
         if args.collapse_adjacent_mutations: collapse_adjacent_mutations( simple )
+
+        # truncate simple to start at start_pos
+        for (line,simple_line) in enumerate( simple ): simple[ line ] = simple_line[ (start_pos[line] - 1): ]
 
 	# Project mutation frequencies across sequences, filtering out reads with 10 or more
 	count = 0
@@ -298,8 +301,6 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 
 	return ( simple, start_pos )
 
-
-
 def output_rdat( filename, args, sequence, row_indices, seqpos, WTdata, data2d, f_log, sfilein ):
         # Output data and annotations to RDAT file
 	construct = args.name
@@ -314,20 +315,19 @@ def output_rdat( filename, args, sequence, row_indices, seqpos, WTdata, data2d, 
 	annotations = {'experimentType:MutationalProfiling'}
 	data_annotations = []
 	data_annotations.append({'mutation':'WT'})
-	for idx, row_idx in enumerate(row_indices):
-		position = seqpos[row_idx] - offset
-		data_annotations.append({'mutation':[string.replace(sequence[position-1],'T','U') + str(position + offset) + 'X']})
+        if len(row_indices)> 0:
+                for idx, row_idx in enumerate(row_indices):
+                        position = seqpos[row_idx] - offset
+                        data_annotations.append({'mutation':[string.replace(sequence[position-1],'T','U') + str(position + offset) + 'X']})
 	data = np.concatenate([WTdata, data2d], axis=0)			# combine WT data and 2D data
-	# np.set_printoptions(threshold=np.nan)
-	# print str(data[0,:])
 
 	r = RDATFile()
-        # what's the deal with offset? MATLAB scripts add this number to 1, 2, ... N. But Python scripts add this number to 0, 1, ... N-1?
 	r.save_a_construct(construct, data, sequence_RNA, structure, offset, annotations, data_annotations, filename, comments, version)
 
-        output_string = '\n\nRDAT file created: ' + currdir + '/' + args.outprefix + '.rdat'
-        sys.stdout.write( output_string + '\n' )
-	f_log.write( output_string )
+        output_string = 'RDAT file created: ' + filename
+        sys.stdout.write( output_string+'\n' )
+	f_log.write( output_string+'\n' )
+
 
 def simple_to_rdat( args, sequence, sfilein=0, simple=[], start_pos=[] ):
 
@@ -347,16 +347,43 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[], start_pos=[] ):
                         assert( len(simple_string) == (int( fields[1]) - int(fields[0]) + 1 ) )
 			simple.append( [ int(x) for x in simple_string ] )
 
-        mut_idxs = []
+        mut_idxs   = []
+        mut_counts = []
         for line, dat in enumerate(simple):
                 if ( line % 10000 == 0): print 'Doing simple-to-RDAT mutation assignment for line ', line, ' out of ', len( simple )
                 start_pos_to_use = 1
+                mut_counts.append( 0 )
                 if ( len( start_pos ) > 0 ):
                         start_pos_to_use = start_pos[ line ]
                         if ( start_pos[ line ] > args.start_pos_cutoff ): continue
                 mut_idx = array( [ (idx + start_pos_to_use - 1) for idx, val in enumerate(dat) if val == 1])
-                if ( len( mut_idx ) > args.num_hits_cutoff ): continue
+                mut_counts[ line ] = len( mut_idx )
+                if ( mut_counts[line] > args.num_hits_cutoff ): continue
                 mut_idxs.append(mut_idx)
+        numreads = len( mut_idxs )
+
+        # record reactivity associated with reverse transcriptase stopping
+        # probably should look at a 2D version of this, like in MOHCA-seq. -- rhiju
+        if ( len( start_pos ) > 0 ):
+                # "start pos" actually records where reverse transcriptase stopped.
+                start_pos_counts = np.zeros((1,WTlen))
+                for line, dat in enumerate(simple):
+                        if ( line % 10000 == 0): print 'Doing simple-to-RDAT stop assignment for line ', line, ' out of ', len( simple )
+                        start_pos_to_use = start_pos[ line ]
+                        if ( mut_counts[line] > args.num_hits_cutoff ): continue
+                        assert ( start_pos_to_use  <= WTlen )
+                        if ( start_pos_to_use == WTlen ): continue
+                        start_pos_counts[ 0, start_pos_to_use - 1 ] += 1
+                # get reactivities, using Fi/[F0 + F1 ... + Fi] expression.
+                stop_reactivity = np.zeros((1,WTlen))
+                sum_counts = start_pos_counts[ 0, 0 ]
+                for (idx,counts) in enumerate(start_pos_counts[0,1:]):
+                        sum_counts += counts
+                        stop_reactivity[0,idx] = ( float(counts)/sum_counts )
+                filename = currdir + '/' + args.outprefix + '.stop_reactivity.rdat'
+                output_rdat( filename, args, sequence, [], seqpos, stop_reactivity, np.zeros((0,WTlen)), f_log, sfilein )
+
+
         numreads = len( mut_idxs )
 
 	# Set up arrays for 1D and 2D data
@@ -367,7 +394,6 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[], start_pos=[] ):
 	count = 0
 	for (line,indices) in enumerate( mut_idxs ):
                 if ( line % 10000 == 0): print 'Doing data2d compilation for line  ', line, ' out of ', len( mut_idxs )
-		# indices -= seqpos[0]									# Adjust sequence position by starting sequence position
                 assert( len(indices) <= args.num_hits_cutoff )
                 count += 1
                 if len( indices ) > 0:
