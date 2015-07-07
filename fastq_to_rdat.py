@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #######################################################################################
 # Analysis of 2D signal in mutational profiling sequencing data (MaP2D)
 #######################################################################################
@@ -45,6 +45,7 @@ parser.add_argument('--start_pos_cutoff', type=int, help='full-length filter: mi
 parser.add_argument('--collapse_adjacent_mutations', type=bool, help='if several mutations/indels occur in a row, count them as a single mutation occurring at last position.',default=True)
 parser.add_argument('--ignore_dels', type=bool, help='do not record deletions in simple/rdat files.',    default=False)
 parser.add_argument('--ignore_inserts', type=bool, help='do not record insertions in simple/rdat files.',default=True)
+parser.add_argument('--max_reads', type=int, help='maximum number of reads to take from FASTQ',default=0)
 
 args = parser.parse_args()
 sequencefile_lines = args.sequencefile.readlines()
@@ -167,12 +168,14 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
                 if ( i % 40000 == 0 ): print 'Read in line ', i/4
 		if i % 4 == 1:
 			seqs_read1.append( line.strip() )
+                if args.max_reads > 0 and len( seqs_read1 ) >= args.max_reads: break
         print 'Finished reading in file for Read 1. Number of seqs:', len( seqs_read1)
 
 	seqs_read2 = []
         for i, line in enumerate(args.read2fastq):
 		if i % 4 == 1:
 			seqs_read2.append( line.strip() )
+                if args.max_reads > 0 and len( seqs_read2 ) >= args.max_reads: break
 
 	# Truncate WT reverse complement to match length of read
 	WTrev_trunc = WTrev[0:len(seqs_read1[1])]
@@ -258,7 +261,7 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 
 	# Project mutation frequencies across sequences, filtering out reads with 10 or more
 	count = 0
-	mut_count = np.sum(mutations[:,:-1,:], axis=(1,2))
+	mut_count = np.sum(mutations[:,:-1,:], axis=(1,2) )
 	for line, seq in enumerate(seqs_read1_align):
 		# print np.sum(mutations, axis=(1,2))
 		if mut_count[line] <= args.num_hits_cutoff and start_pos[line] <= args.start_pos_cutoff:
@@ -409,10 +412,15 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[], start_pos=[] ):
 
 if __name__ == '__main__':
 
+        # get target directory ready.
+        targetdir = os.path.dirname( args.outprefix )
+        if ( len( targetdir ) > 0 and not os.path.exists( targetdir ) ): os.makedirs( targetdir )
+
 	# Get current directory and open log file
 	currdir = os.getcwd()
 	f_log = open(currdir + '/' + args.outprefix + '.log', 'w')
 	f_log.write( 'Current directory: ' + currdir + '\n\n' )
+
 
 	# See if user input .simple data file or FASTQ files and run appropriate commands
 	if args.simplefile is not None:
