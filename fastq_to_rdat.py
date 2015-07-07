@@ -212,9 +212,7 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
 
                 # Following edits aligned_read1 to remove 'junk' nts that SSIII tacks onto the ends of transcripts
                 # note that maxpos1 is updated (position at which reverse read stops, in WTrev numbering)
-                if ( line == 0 ): print maxpos1
                 ( aligned_read1, num_junk_nts, maxpos1 ) = truncate_junk_at_end( aligned_read1 )
-                if ( line == 0 ): print maxpos1
 
 		seqs_read1_align.append( aligned_read1 )
 		f_seqs_read1.write( aligned_read1[0]+'\n'+aligned_read1[1]+'\n\n' )
@@ -249,7 +247,6 @@ def fastq_to_simple( args ):			###### Build 'simple' array with 1 at each mutati
         match = np.zeros([len(seqs_read1_align),WTlen])
 	mut_projection = np.zeros([len(muts),WTlen])
 
-        print_out_problem = 0
         for line, seq_align in enumerate(seqs_read1_align):
                 if ( line % 10000 == 0): print 'Doing mutation assignment for line ', line, ' out of ', len( seqs_read1_align )
                 record_mutations( seq_align, line, simple, mutations, match, direction = 'reverse' )
