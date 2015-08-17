@@ -74,7 +74,7 @@ f_log = open(currdir + '/' + 'AnalysisLog.txt', 'w')
 make_dir( currdir + '/1_Demultiplex' )
 
 f_log.write( 'Starting Novobarcode demultiplexing at: ' + timeStamp() )
-#os.system('novobarcode -b ' + args.barcodes.name + ' -f ' + args.read1fastq.name + ' ' + args.read2fastq.name + ' -d 1_Demultiplex > 1_Demultiplex/novobarcode_log_Distance4.txt')
+os.system('novobarcode -b ' + args.barcodes.name + ' -f ' + args.read1fastq.name + ' ' + args.read2fastq.name + ' -d 1_Demultiplex > 1_Demultiplex/novobarcode_log_Distance4.txt')
 f_log.write( '\nFinished demultiplexing at: ' + timeStamp() )
 
 lines = open( args.barcodes.name ).readlines()
