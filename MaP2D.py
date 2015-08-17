@@ -72,11 +72,11 @@ def make_dir(path):
 f_log = open(currdir + '/' + 'AnalysisLog.txt', 'w')
 
 make_dir( currdir + '/1_Demultiplex' )
-
-f_log.write( 'Starting Novobarcode demultiplexing at: ' + timeStamp() )
 if not os.path.exists( '1_Demultiplex/GGTATATGTACA/SampleTruSeq2_S2_L001_R1_001.fastq' ):
+    f_log.write( 'Starting Novobarcode demultiplexing at: ' + timeStamp() )
+    print 'Starting Novobarcode demultiplexing'
     os.system('novobarcode -b ' + args.barcodes.name + ' -f ' + args.read1fastq.name + ' ' + args.read2fastq.name + ' -d 1_Demultiplex > 1_Demultiplex/novobarcode_log_Distance4.txt')
-f_log.write( '\nFinished demultiplexing at: ' + timeStamp() )
+    f_log.write( '\nFinished demultiplexing at: ' + timeStamp() )
 
 lines = open( args.barcodes.name ).readlines()
 primer_tags = []
@@ -106,8 +106,10 @@ for primer_tag in primer_tags:
         os.system('ln -fs %s/1_Demultiplex/%s/%s 2_MaP2D/%s/' % (currdir,barcode_sequences[primer_tag],new_fastq_name,primer_tag) )
 
 os.chdir( currdir + '/2_MaP2D' )
+print 'Starting MaP2D analysis'
 f_log.write( '\nStarting MaP2D analysis at: ' + timeStamp() )
 for primer_tag in primer_tags:
+    print 'Starting '+primer_tag
     os.chdir( primer_tag )
     new_fastq_names = [ primer_tag+'_S1_L001_R1_001.fastq', primer_tag+'_S1_L001_R2_001.fastq' ]
     os.system( 'fastq_to_rdat.py ../' + args.name + '.fa' + ' --read1fastq ' + new_fastq_names[0] + ' --read2fastq ' + new_fastq_names[1] + ' --name ' + args.name + ' --offset ' + str(args.offset) + ' --outprefix out' )
