@@ -72,7 +72,7 @@ def make_dir(path):
 f_log = open(currdir + '/' + 'AnalysisLog.txt', 'w')
 
 make_dir( currdir + '/1_Demultiplex' )
-if not os.path.exists( '1_Demultiplex/GGTATATGTACA/SampleTruSeq2_S2_L001_R1_001.fastq' ):
+if not os.path.exists( '1_Demultiplex/novobarcode_log_Distance4.txt' ):
     f_log.write( 'Starting Novobarcode demultiplexing at: ' + timeStamp() )
     print 'Starting Novobarcode demultiplexing'
     os.system('novobarcode -b ' + args.barcodes.name + ' -f ' + args.read1fastq.name + ' ' + args.read2fastq.name + ' -d 1_Demultiplex > 1_Demultiplex/novobarcode_log_Distance4.txt')
@@ -96,14 +96,14 @@ make_dir( currdir + '/2_MaP2D' )
 os.chdir( currdir )
 
 # Read 1
-old_fastq_names = [args.read1fastq.name, args.read2fastq.name]
+old_fastq_names = [os.path.basename(args.read1fastq.name), os.path.basename(args.read2fastq.name)]
 os.system('cp %s 2_MaP2D' % (args.sequencefile.name) )
 for primer_tag in primer_tags:
     new_fastq_names = [ primer_tag+'_S1_L001_R1_001.fastq', primer_tag+'_S1_L001_R2_001.fastq' ]
     for (old_fastq_name,new_fastq_name) in zip(old_fastq_names,new_fastq_names):
-        os.system('ln -fs %s/1_Demultiplex/%s/%s 1_Demultiplex/%s/%s' % (currdir,barcode_sequences[primer_tag],old_fastq_name, barcode_sequences[primer_tag],new_fastq_name) )
+        #os.system('ln -fs %s/1_Demultiplex/%s/%s 1_Demultiplex/%s/%s' % (currdir,barcode_sequences[primer_tag],old_fastq_name, barcode_sequences[primer_tag],new_fastq_name) )
         os.system('mkdir -p 2_MaP2D/%s' % (primer_tag) )
-        os.system('ln -fs %s/1_Demultiplex/%s/%s 2_MaP2D/%s/' % (currdir,barcode_sequences[primer_tag],new_fastq_name,primer_tag) )
+        #os.system('ln -fs %s/1_Demultiplex/%s/%s 2_MaP2D/%s/' % (currdir,barcode_sequences[primer_tag],new_fastq_name,primer_tag) )
 
 os.chdir( currdir + '/2_MaP2D' )
 print 'Starting MaP2D analysis'
@@ -111,7 +111,7 @@ f_log.write( '\nStarting MaP2D analysis at: ' + timeStamp() )
 for primer_tag in primer_tags:
     print 'Starting '+primer_tag
     os.chdir( primer_tag )
-    new_fastq_names = [ primer_tag+'_S1_L001_R1_001.fastq', primer_tag+'_S1_L001_R2_001.fastq' ]
+    new_fastq_names = [ '../../1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+name for name in old_fastq_names]
     os.system( 'fastq_to_rdat.py ../' + args.name + '.fa' + ' --read1fastq ' + new_fastq_names[0] + ' --read2fastq ' + new_fastq_names[1] + ' --name ' + args.name + ' --offset ' + str(args.offset) + ' --outprefix out' )
     os.chdir( '../' )
 f_log.write( '\nFinished MaP2D analysis at: ' + timeStamp() )
