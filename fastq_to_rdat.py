@@ -382,7 +382,7 @@ def simple_to_rdat( args, sequence, sfilein=0, simple=[], start_pos=[] ):
                 sum_counts = start_pos_counts[ 0, 0 ]
                 for (idx,counts) in enumerate(start_pos_counts[0,1:]):
                         sum_counts += counts
-                        stop_reactivity[0, idx - 1] = ( float(counts)/sum_counts )
+                        stop_reactivity[0, idx ] = ( float(counts)/sum_counts )
                 filename = currdir + '/' + args.outprefix + '.stop_reactivity.rdat'
                 output_rdat( filename, args, sequence, [], seqpos, stop_reactivity, np.zeros((0,WTlen)), f_log, sfilein )
 
