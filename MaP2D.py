@@ -16,10 +16,6 @@
 #
 # Each analysis is performed in a separate folder.
 #
-# To do:
-#       -Parse specific barcodes provided in 'barcodes' input file, which may be a
-#        subset of the 16 RTB primers used by Ann in the pilot experiment.
-#
 # Clarence Cheng, 2015
 #
 
@@ -48,7 +44,6 @@ if args.name == 'PLACEHOLDER':
 currdir = os.getcwd()
 
 
-
 def timeStamp():
     t = time.localtime()
     month = t.tm_mon
@@ -67,7 +62,6 @@ def make_dir(path):
             raise
 
 
-
 ######################## Demultiplex using Novobarcode ########################
 f_log = open(currdir + '/' + 'AnalysisLog.txt', 'w')
 
@@ -78,42 +72,50 @@ if not os.path.exists( '1_Demultiplex/novobarcode_log_Distance4.txt' ):
     os.system('novobarcode -b ' + args.barcodes.name + ' -f ' + args.read1fastq.name + ' ' + args.read2fastq.name + ' -d 1_Demultiplex > 1_Demultiplex/novobarcode_log_Distance4.txt')
     f_log.write( '\nFinished demultiplexing at: ' + timeStamp() )
 
+print 'Reading barcodes from: '+args.barcodes.name
+f_log.write( 'Primers:\n' )
 lines = open( args.barcodes.name ).readlines()
 primer_tags = []
 barcode_sequences = {}
 for line in lines:
     if len( line ) < 2: continue
-    cols = line[:-1].split( '\t' )
+    col = line.rstrip( '\n' )
+    cols = col.split( '\t' )
     if len( cols ) != 2: continue
     if len( cols[1] ) < 2: continue
     primer_tags.append( cols[0] )
     barcode_sequences[ cols[0] ] = cols[1]
+    f_log.write( line + '\n' )
+    print cols[0]+'\t'+cols[1]
+
 
 ######################## Generate RDAT of 2D data using fastq_to_rdat.py ########################
 make_dir( currdir + '/2_MaP2D' )
 
-# Move demultiplexed fastq files to MaP2D folder
 os.chdir( currdir )
 
-# Read 1
+print 'Starting MaP2D analysis'
+f_log.write( '\nStarting MaP2D analysis at: ' + timeStamp() + '\n' )
+
+# Move demultiplexed fastq files to MaP2D folder
 old_fastq_names = [os.path.basename(args.read1fastq.name), os.path.basename(args.read2fastq.name)]
 os.system('cp %s 2_MaP2D' % (args.sequencefile.name) )
 for primer_tag in primer_tags:
+
     new_fastq_names = [ primer_tag+'_S1_L001_R1_001.fastq', primer_tag+'_S1_L001_R2_001.fastq' ]
     for (old_fastq_name,new_fastq_name) in zip(old_fastq_names,new_fastq_names):
-        #os.system('ln -fs %s/1_Demultiplex/%s/%s 1_Demultiplex/%s/%s' % (currdir,barcode_sequences[primer_tag],old_fastq_name, barcode_sequences[primer_tag],new_fastq_name) )
+        os.system('mv 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+old_fastq_name+' 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+new_fastq_name)
         os.system('mkdir -p 2_MaP2D/%s' % (primer_tag) )
-        #os.system('ln -fs %s/1_Demultiplex/%s/%s 2_MaP2D/%s/' % (currdir,barcode_sequences[primer_tag],new_fastq_name,primer_tag) )
 
-os.chdir( currdir + '/2_MaP2D' )
-print 'Starting MaP2D analysis'
-f_log.write( '\nStarting MaP2D analysis at: ' + timeStamp() )
-for primer_tag in primer_tags:
+    os.chdir( currdir + '/2_MaP2D/' + primer_tag )
     print 'Starting '+primer_tag
-    os.chdir( primer_tag )
-    new_fastq_names = [ '../../1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+name for name in old_fastq_names]
-    os.system( 'fastq_to_rdat.py ../' + args.name + '.fa' + ' --read1fastq ' + new_fastq_names[0] + ' --read2fastq ' + new_fastq_names[1] + ' --name ' + args.name + ' --offset ' + str(args.offset) + ' --outprefix out' )
-    os.chdir( '../' )
+    fastq_names = [ '../../1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+name for name in new_fastq_names]
+    commandline = 'fastq_to_rdat.py ../' + args.sequencefile.name + ' --read1fastq ' + fastq_names[0] + ' --read2fastq ' + fastq_names[1] + ' --name ' + args.name.lstrip() + ' --offset ' + str(args.offset) + ' --outprefix ' + primer_tag
+    print 'Command: '+commandline
+    f_log.write( 'Command: ' + commandline + '\n' )
+    os.system( commandline )
+    os.chdir( currdir )
+
 f_log.write( '\nFinished MaP2D analysis at: ' + timeStamp() )
 
 
@@ -126,94 +128,37 @@ if args.config is not None:
 
     os.chdir( currdir )
 
-    ######################################################################################
-    # this needs to be updated to use primer_tags (RTB000, RTB001 ... ) , which are read in from barcode file
-    ######################################################################################
-
     # Move demultiplexed fastq files to ShapeMapper folder
-    # Read 1
-    os.system('mv 1_Demultiplex/ACCAGGCGCTGG/RTB000_S1_L001_R1_001.fastq 3_ShapeMapper/RTB000_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/GAGGCCTTGGCC/RTB001_S1_L001_R1_001.fastq 3_ShapeMapper/RTB001_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/CTTTAAAATATA/RTB002_S1_L001_R1_001.fastq 3_ShapeMapper/RTB002_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/TGACTTGCACAT/RTB003_S1_L001_R1_001.fastq 3_ShapeMapper/RTB003_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/TGCGCCATTGCT/RTB004_S1_L001_R1_001.fastq 3_ShapeMapper/RTB004_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/ACAAAATGGTGG/RTB005_S1_L001_R1_001.fastq 3_ShapeMapper/RTB005_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/CTGCGTGCAAAC/RTB006_S1_L001_R1_001.fastq 3_ShapeMapper/RTB006_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/GATTTGCACCTA/RTB007_S1_L001_R1_001.fastq 3_ShapeMapper/RTB007_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/GGTATATGTACA/RTB008_S1_L001_R1_001.fastq 3_ShapeMapper/RTB008_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/CCCGCGCTGGGT/RTB009_S1_L001_R1_001.fastq 3_ShapeMapper/RTB009_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/ATGCATGCACAG/RTB010_S1_L001_R1_001.fastq 3_ShapeMapper/RTB010_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/TAATGCAACTTC/RTB011_S1_L001_R1_001.fastq 3_ShapeMapper/RTB011_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/GCAAATGTGCTA/RTB012_S1_L001_R1_001.fastq 3_ShapeMapper/RTB012_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/TGGCGAACATGG/RTB013_S1_L001_R1_001.fastq 3_ShapeMapper/RTB013_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/CTTTCCCACACT/RTB014_S1_L001_R1_001.fastq 3_ShapeMapper/RTB014_S1_L001_R1_001.fastq')
-    os.system('mv 1_Demultiplex/AACGTGTGTGAC/RTB015_S1_L001_R1_001.fastq 3_ShapeMapper/RTB015_S1_L001_R1_001.fastq')
-    # Read 2
-    os.system('mv 1_Demultiplex/ACCAGGCGCTGG/RTB000_S1_L001_R2_001.fastq 3_ShapeMapper/RTB000_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/GAGGCCTTGGCC/RTB001_S1_L001_R2_001.fastq 3_ShapeMapper/RTB001_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/CTTTAAAATATA/RTB002_S1_L001_R2_001.fastq 3_ShapeMapper/RTB002_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/TGACTTGCACAT/RTB003_S1_L001_R2_001.fastq 3_ShapeMapper/RTB003_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/TGCGCCATTGCT/RTB004_S1_L001_R2_001.fastq 3_ShapeMapper/RTB004_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/ACAAAATGGTGG/RTB005_S1_L001_R2_001.fastq 3_ShapeMapper/RTB005_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/CTGCGTGCAAAC/RTB006_S1_L001_R2_001.fastq 3_ShapeMapper/RTB006_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/GATTTGCACCTA/RTB007_S1_L001_R2_001.fastq 3_ShapeMapper/RTB007_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/GGTATATGTACA/RTB008_S1_L001_R2_001.fastq 3_ShapeMapper/RTB008_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/CCCGCGCTGGGT/RTB009_S1_L001_R2_001.fastq 3_ShapeMapper/RTB009_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/ATGCATGCACAG/RTB010_S1_L001_R2_001.fastq 3_ShapeMapper/RTB010_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/TAATGCAACTTC/RTB011_S1_L001_R2_001.fastq 3_ShapeMapper/RTB011_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/GCAAATGTGCTA/RTB012_S1_L001_R2_001.fastq 3_ShapeMapper/RTB012_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/TGGCGAACATGG/RTB013_S1_L001_R2_001.fastq 3_ShapeMapper/RTB013_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/CTTTCCCACACT/RTB014_S1_L001_R2_001.fastq 3_ShapeMapper/RTB014_S1_L001_R2_001.fastq')
-    os.system('mv 1_Demultiplex/AACGTGTGTGAC/RTB015_S1_L001_R2_001.fastq 3_ShapeMapper/RTB015_S1_L001_R2_001.fastq')
-
+    for primer_tag in primer_tags:
+        new_fastq_names = [ primer_tag+'_S1_L001_R1_001.fastq', primer_tag+'_S1_L001_R2_001.fastq' ]
+        new_fastq_names_a = [ '1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+name for name in new_fastq_names]
+        new_fastq_names_b = [ '3_ShapeMapper/'+name for name in new_fastq_names]
+        command1 = 'mv '+new_fastq_names_a[0]+' '+new_fastq_names_b[0]
+        command2 = 'mv '+new_fastq_names_a[1]+' '+new_fastq_names_b[1]
+        print command1
+        print command2
+        os.system( command1 )
+        os.system( command2 )
 
     f_log.write( '\nStarting ShapeMapper analysis at: ' + timeStamp() )
-    # print 'cp ' + args.sequencefile.name + ' ' + currdir + '/3_ShapeMapper/' + args.name + '.fa'
-    # print 'cp ' + args.config.name + ' ' + currdir + '/3_ShapeMapper/' + args.name + '.cfg'
     os.system('cp ' + args.sequencefile.name + ' ' + currdir + '/3_ShapeMapper/' + args.name + '.fa')
     os.system('cp ' + args.config.name + ' ' + currdir + '/3_ShapeMapper/' + args.name + '.cfg')
     os.chdir( currdir + '/3_ShapeMapper' )
     os.system('ShapeMapper.py ' + args.name + '.cfg')
     f_log.write( '\nFinished ShapeMapper analysis at: ' + timeStamp() )
 
-
     os.chdir( currdir )
 
     # Move demultiplexed fastq files back to Demultiplex folder
-    # Read 1
-    os.system('mv 3_ShapeMapper/RTB000_S1_L001_R1_001.fastq 1_Demultiplex/ACCAGGCGCTGG/RTB000_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB001_S1_L001_R1_001.fastq 1_Demultiplex/GAGGCCTTGGCC/RTB001_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB002_S1_L001_R1_001.fastq 1_Demultiplex/CTTTAAAATATA/RTB002_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB003_S1_L001_R1_001.fastq 1_Demultiplex/TGACTTGCACAT/RTB003_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB004_S1_L001_R1_001.fastq 1_Demultiplex/TGCGCCATTGCT/RTB004_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB005_S1_L001_R1_001.fastq 1_Demultiplex/ACAAAATGGTGG/RTB005_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB006_S1_L001_R1_001.fastq 1_Demultiplex/CTGCGTGCAAAC/RTB006_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB007_S1_L001_R1_001.fastq 1_Demultiplex/GATTTGCACCTA/RTB007_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB008_S1_L001_R1_001.fastq 1_Demultiplex/GGTATATGTACA/RTB008_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB009_S1_L001_R1_001.fastq 1_Demultiplex/CCCGCGCTGGGT/RTB009_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB010_S1_L001_R1_001.fastq 1_Demultiplex/ATGCATGCACAG/RTB010_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB011_S1_L001_R1_001.fastq 1_Demultiplex/TAATGCAACTTC/RTB011_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB012_S1_L001_R1_001.fastq 1_Demultiplex/GCAAATGTGCTA/RTB012_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB013_S1_L001_R1_001.fastq 1_Demultiplex/TGGCGAACATGG/RTB013_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB014_S1_L001_R1_001.fastq 1_Demultiplex/CTTTCCCACACT/RTB014_S1_L001_R1_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB015_S1_L001_R1_001.fastq 1_Demultiplex/AACGTGTGTGAC/RTB015_S1_L001_R1_001.fastq')
-    # Read 2
-    os.system('mv 3_ShapeMapper/RTB000_S1_L001_R2_001.fastq 1_Demultiplex/ACCAGGCGCTGG/RTB000_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB001_S1_L001_R2_001.fastq 1_Demultiplex/GAGGCCTTGGCC/RTB001_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB002_S1_L001_R2_001.fastq 1_Demultiplex/CTTTAAAATATA/RTB002_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB003_S1_L001_R2_001.fastq 1_Demultiplex/TGACTTGCACAT/RTB003_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB004_S1_L001_R2_001.fastq 1_Demultiplex/TGCGCCATTGCT/RTB004_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB005_S1_L001_R2_001.fastq 1_Demultiplex/ACAAAATGGTGG/RTB005_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB006_S1_L001_R2_001.fastq 1_Demultiplex/CTGCGTGCAAAC/RTB006_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB007_S1_L001_R2_001.fastq 1_Demultiplex/GATTTGCACCTA/RTB007_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB008_S1_L001_R2_001.fastq 1_Demultiplex/GGTATATGTACA/RTB008_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB009_S1_L001_R2_001.fastq 1_Demultiplex/CCCGCGCTGGGT/RTB009_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB010_S1_L001_R2_001.fastq 1_Demultiplex/ATGCATGCACAG/RTB010_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB011_S1_L001_R2_001.fastq 1_Demultiplex/TAATGCAACTTC/RTB011_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB012_S1_L001_R2_001.fastq 1_Demultiplex/GCAAATGTGCTA/RTB012_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB013_S1_L001_R2_001.fastq 1_Demultiplex/TGGCGAACATGG/RTB013_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB014_S1_L001_R2_001.fastq 1_Demultiplex/CTTTCCCACACT/RTB014_S1_L001_R2_001.fastq')
-    os.system('mv 3_ShapeMapper/RTB015_S1_L001_R2_001.fastq 1_Demultiplex/AACGTGTGTGAC/RTB015_S1_L001_R2_001.fastq')
-
+    for primer_tag in primer_tags:
+        new_fastq_names = [ primer_tag+'_S1_L001_R1_001.fastq', primer_tag+'_S1_L001_R2_001.fastq' ]
+        new_fastq_names_a = [ '1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+name for name in new_fastq_names]
+        new_fastq_names_b = [ '3_ShapeMapper/'+name for name in new_fastq_names]
+        command1 = 'mv '+new_fastq_names_b[0]+' '+new_fastq_names_a[0]
+        command2 = 'mv '+new_fastq_names_b[1]+' '+new_fastq_names_a[1]
+        print command1
+        print command2
+        os.system( command1 )
+        os.system( command2 )
 
 f_log.close()
