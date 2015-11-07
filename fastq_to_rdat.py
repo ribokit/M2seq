@@ -268,6 +268,9 @@ def fastq_to_simple( args ):            # Build 'simple' array with 1 at each mu
             # Advance count
             count += 1
 
+        if fltnm == 0:
+            f_log.write( '\nNo sequences passing both full-length and quality filters!\n' )
+            fltnm = 1
         mut_projection = np.concatenate([mut_projection, np.sum(mut_projection, axis=1, keepdims=True)], axis=1)                # Total number of each type of mutation across all positions
         mut_projection = np.concatenate([mut_projection, np.sum(mut_projection, axis=0, keepdims=True) / fltnm], axis=0)        # Mutation frequency at each position
 
@@ -364,6 +367,9 @@ def aligned_to_simple( args ):          # Build 'simple' array with 1 at each mu
             # Advance count
             count += 1
 
+        if fltnm == 0:
+            f_log.write( '\nNo sequences passing both full-length and quality filters!\n' )
+            fltnm = 1
         mut_projection = np.concatenate([mut_projection, np.sum(mut_projection, axis=1, keepdims=True)], axis=1)                # Total number of each type of mutation across all positions
         mut_projection = np.concatenate([mut_projection, np.sum(mut_projection, axis=0, keepdims=True) / fltnm], axis=0)        # Mutation frequency at each position
 
@@ -439,12 +445,14 @@ def simple_to_rdat( args, sequence, filesin=2 ):
         # Set up arrays for 1D and 2D data
         count = 0
         fltnm = 0
+        stpnm = 0
         WTdata = np.zeros((1, WTlen))
         data2d = np.zeros(([len(seqpos),len(seqpos)]))
         mut_idxs   = []
         mut_counts = []
-        start_pos_counts = np.zeros((1,WTlen))  
+        start_pos_counts = np.zeros((1,WTlen))
         stop_reactivity = np.zeros((1,WTlen))
+
         for line in args.simplefile.readlines():                
                 # Read from file
                 fields = line.split('\t')
@@ -459,27 +467,31 @@ def simple_to_rdat( args, sequence, filesin=2 ):
                 # Simple-to-RDAT stop and mutation assignment
                 mut_counts = 0
                 start_pos_to_use = start_pos
-                # record reactivity associated with reverse transcriptase stopping (probably should look at a 2D version of this, like in MOHCA-seq. -- rhiju)
-                mod_pos = start_pos_to_use - 1                  # "start pos" actually records where reverse transcriptase stopped.
-                # note further offset: mod_pos=0 means *no modifications*; mod_pos = 1 means modification at position 1
-                # if we swtich to to 2D readout, maybe should decrement (add -1). Then no mod would actually *wrap* to WTlen (?)
-                start_pos_counts[ 0, mod_pos ] += 1
-                # record mutation indices
-                if ( start_pos > args.start_pos_cutoff ): continue
+                # Record mutation indices
                 mut_idx = array( [ (idx + start_pos_to_use - 1) for idx, val in enumerate(simple_line) if val == 1])
                 mut_counts = len( mut_idx )
                 if ( mut_counts > args.num_hits_cutoff ): continue
-
                 # Build data arrays
-                if mut_counts > 0:
-                        WTdata[ 0, mut_idx ] += 1               # Build 1D profile
-                for mutpos in mut_idx:
-                        data2d[mutpos, mut_idx] += 1            # Build 2D dataset
-
-                fltnm += 1                                      # count sequences that pass filters above
+                if ( start_pos <= args.start_pos_cutoff ):
+                    if mut_counts > 0:
+                            WTdata[ 0, mut_idx ] += 1               # Build 1D profile
+                    for mutpos in mut_idx:
+                            data2d[mutpos, mut_idx] += 1            # Build 2D dataset
+                    fltnm += 1                                      # count sequences that pass filters above
+                # Record reactivity associated with reverse transcriptase stopping (probably should look at a 2D version of this, like in MOHCA-seq. -- rhiju)
+                assert ( start_pos_to_use  <= (WTlen + 1) )
+                if ( start_pos_to_use > WTlen ): continue
+                mod_pos = start_pos_to_use - 1                      # "start pos" actually records where reverse transcriptase stopped.
+                # note further offset: mod_pos=0 means *no modifications*; mod_pos = 1 means modification at position 1
+                # if we swtich to to 2D readout, maybe should decrement (add -1). Then no mod would actually *wrap* to WTlen (?)
+                start_pos_counts[ 0, mod_pos ] += 1
+                stpnm += 1                                          # count sequences used for stop reactivities
 
         f_log.write( '\nTotal number of sequences: ' + str(count) )
-        f_log.write( '\nNumber of sequences with fewer than 10 mismatches to WT (used to get 2D data): ' + str(fltnm) + '\n\n' )
+        f_log.write( '\nNumber of sequences used for RT stop reactivities: ' + str(stpnm) )
+        f_log.write( '\nFull-length filter: alignment must extend to at least position ' + str(args.start_pos_cutoff) )
+        f_log.write( '\nQuality filter (use for 2D data if fewer than N mismatches to WT): N = ' + str(args.num_hits_cutoff) )
+        f_log.write( '\nNumber of sequences passing full-length and quality filters: ' + str(fltnm) + '\n\n' )
 
         # Get reactivities, using Fi/[F0 + F1 ... + Fi] expression.
         sum_counts = start_pos_counts[ 0, 0 ]
@@ -489,6 +501,9 @@ def simple_to_rdat( args, sequence, filesin=2 ):
         filename = currdir + '/' + args.outprefix + '.stop_reactivity.rdat'
         output_rdat( filename, args, sequence, [], seqpos, stop_reactivity, np.zeros((0,WTlen)), f_log, filesin )
 
+        if fltnm == 0:
+            f_log.write( '\nNo sequences passing both full-length and quality filters! Set normalization factor for "modification fraction" to 1\n' )
+            fltnm = 1
         # normalizes to total number of reads -- should be a true 'modification fraction'
         WTdata_reactivity = WTdata/fltnm
         # normalizes to total number of hits -- original choice
