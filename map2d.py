@@ -9,14 +9,10 @@
 #
 # 1. Demultiplexes the raw FASTQs using user-provided barcodes using Novobarcode
 # 2. Uses the demultiplexed FASTQs and the WT sequence to generate 2D mutational profiling data
-#       (note: initially used ShapeMapper for pre-alignment and read trimming by Phred score, but
-#       now uses nwalign without trimming; results are similar with and without)
-# 3. Calculates 1D reactivity profiles from the demultiplexed FASTQs using ShapeMapper
-#       (note: may write in-house scripts for 1D reactivity calculations in future)
+#       Use ShapeMapper for read alignment to reference sequence and generation of mutation strings
+# 3. Calculates 2D datasets and outputs RDAT files using simple_to_rdat.py
 #
-# Each analysis is performed in a separate folder.
-#
-# Clarence Cheng, 2015
+# Clarence Cheng, 2015-2016
 #
 
 import os, sys, time
@@ -39,7 +35,8 @@ sequencefile_lines = args.sequencefile.readlines()
 sequence = sequencefile_lines[1].strip().upper()
 
 if args.name == 'PLACEHOLDER':
-    args.name = sequencefile_lines[0].strip()[1:]
+    args.name = sequencefile_lines[0].strip()[2:]
+    print args.name
 
 currdir = os.getcwd()
 
@@ -89,63 +86,44 @@ for line in lines:
     print cols[0]+'\t'+cols[1]
 
 
-######################## Generate RDAT of 2D data using fastq_to_rdat.py ########################
-make_dir( currdir + '/2_MaP2D' )
+######################## Analyze using ShapeMapper.py ########################
+# NOTE: .cfg config file input to ShapeMapper should have the following settings:
+#  Under trimReads options, minPhred = 0
+#  Under countMutations options, minPhredtoCount = 20
+#  Under countMutations options, makeOldMutationStrings = on (write mutation strings in format that can be converted to binary .simple files)
 
-os.chdir( currdir )
-
-print 'Starting MaP2D analysis'
-f_log.write( '\nStarting MaP2D analysis at: ' + timeStamp() + '\n' )
-
-# Move demultiplexed fastq files to MaP2D folder
-old_fastq_names = [os.path.basename(args.read1fastq.name), os.path.basename(args.read2fastq.name)]
-os.system('cp %s 2_MaP2D' % (args.sequencefile.name) )
-for primer_tag in primer_tags:
-
-    new_fastq_names = [ primer_tag+'_S1_L001_R1_001.fastq', primer_tag+'_S1_L001_R2_001.fastq' ]
-    for (old_fastq_name,new_fastq_name) in zip(old_fastq_names,new_fastq_names):
-        os.system('mv 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+old_fastq_name+' 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+new_fastq_name)
-        os.system('mkdir -p 2_MaP2D/%s' % (primer_tag) )
-
-    os.chdir( currdir + '/2_MaP2D/' + primer_tag )
-    print 'Starting '+primer_tag
-    fastq_names = [ '../../1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+name for name in new_fastq_names]
-    commandline = 'fastq_to_rdat.py ../' + args.sequencefile.name + ' --read1fastq ' + fastq_names[0] + ' --read2fastq ' + fastq_names[1] + ' --name ' + args.name.lstrip() + ' --offset ' + str(args.offset) + ' --outprefix ' + primer_tag
-    print 'Command: '+commandline
-    f_log.write( 'Command: ' + commandline + '\n' )
-    os.system( commandline )
-    os.chdir( currdir )
-
-f_log.write( '\nFinished MaP2D analysis at: ' + timeStamp() )
-
-
-os.chdir( currdir )
-
-
-######################## Calculate 1D reactivities using ShapeMapper.py ########################
 if args.config is not None:
-    make_dir( currdir + '/3_ShapeMapper' )
+    make_dir( currdir + '/2_ShapeMapper' )
 
     os.chdir( currdir )
 
     # Move demultiplexed fastq files to ShapeMapper folder
+    old_fastq_names = [os.path.basename(args.read1fastq.name), os.path.basename(args.read2fastq.name)]
     for primer_tag in primer_tags:
         new_fastq_names = [ primer_tag+'_S1_L001_R1_001.fastq', primer_tag+'_S1_L001_R2_001.fastq' ]
-        new_fastq_names_a = [ '1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+name for name in new_fastq_names]
-        new_fastq_names_b = [ '3_ShapeMapper/'+name for name in new_fastq_names]
-        command1 = 'mv '+new_fastq_names_a[0]+' '+new_fastq_names_b[0]
-        command2 = 'mv '+new_fastq_names_a[1]+' '+new_fastq_names_b[1]
-        print command1
-        print command2
-        os.system( command1 )
-        os.system( command2 )
+    for (old_fastq_name,new_fastq_name) in zip(old_fastq_names,new_fastq_names):
+        os.system('mv 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+old_fastq_name+' 2_ShapeMapper/'+new_fastq_name)
 
+    # Run ShapeMapper
     f_log.write( '\nStarting ShapeMapper analysis at: ' + timeStamp() )
-    os.system('cp ' + args.sequencefile.name + ' ' + currdir + '/3_ShapeMapper/' + args.name + '.fa')
-    os.system('cp ' + args.config.name + ' ' + currdir + '/3_ShapeMapper/' + args.name + '.cfg')
-    os.chdir( currdir + '/3_ShapeMapper' )
-    os.system('ShapeMapper.py ' + args.name + '.cfg')
+    print 'Starting ShapeMapper analysis'
+    print 'cp ' + args.sequencefile.name + ' ' + currdir + '/2_ShapeMapper/' + args.name + '.fa'
+    print 'cp ' + args.config.name + ' ' + currdir + '/2_ShapeMapper/' + args.name + '.cfg'
+    os.system('cp ' + args.sequencefile.name + ' ' + currdir + '/2_ShapeMapper/' + args.name + '.fa')
+    os.system('cp ' + args.config.name + ' ' + currdir + '/2_ShapeMapper/' + args.name + '.cfg')
+    os.chdir( currdir + '/2_ShapeMapper' )
+    command_ShapeMapper = 'ShapeMapper.py ' + args.name + '.cfg'
+    f_log.write( '\nShapeMapper command: ' + command_ShapeMapper )
+    os.system( command_ShapeMapper )
     f_log.write( '\nFinished ShapeMapper analysis at: ' + timeStamp() )
+
+    # Generate simple files
+    f_log.write( '\nGenerating simple files at: ' + timeStamp() )
+    os.chdir( currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/' )
+    for file in os.listdir(currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'):
+        if file.endswith('.txt'):
+            os.system('simplify_mutations.py ' + file)
+    f_log.write( '\nFinished generating simple files at: ' + timeStamp() )
 
     os.chdir( currdir )
 
@@ -153,7 +131,7 @@ if args.config is not None:
     for primer_tag in primer_tags:
         new_fastq_names = [ primer_tag+'_S1_L001_R1_001.fastq', primer_tag+'_S1_L001_R2_001.fastq' ]
         new_fastq_names_a = [ '1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+name for name in new_fastq_names]
-        new_fastq_names_b = [ '3_ShapeMapper/'+name for name in new_fastq_names]
+        new_fastq_names_b = [ '2_ShapeMapper/'+name for name in new_fastq_names]
         command1 = 'mv '+new_fastq_names_b[0]+' '+new_fastq_names_a[0]
         command2 = 'mv '+new_fastq_names_b[1]+' '+new_fastq_names_a[1]
         print command1
@@ -161,4 +139,37 @@ if args.config is not None:
         os.system( command1 )
         os.system( command2 )
 
+
+######################## Generate RDAT of 2D data using fastq_to_rdat.py ########################
+if args.config is not None:
+    make_dir( currdir + '/3_MaP2D' )
+    make_dir( currdir + '/3_MaP2D/simple_files')
+    os.chdir( currdir )
+
+    print 'Starting MaP2D analysis'
+    f_log.write( '\nStarting MaP2D analysis at: ' + timeStamp() + '\n' )
+
+    # Move simple format files and counted mutations to MaP2D folder
+    # os.chdir( currdir )
+    for file in os.listdir(currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'):
+        if file.endswith('.simple'):
+            os.system('mv ' + currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/' + file + ' ' + currdir + '/3_MaP2D/simple_files/')
+
+    # Run simple_to_rdat.py
+    os.system('cp ' + args.sequencefile.name + ' ' + currdir + '/3_MaP2D/' + args.name + '.fa')
+    os.chdir( currdir + '/3_MaP2D/simple_files')
+    for file in os.listdir(currdir + '/3_MaP2D/simple_files'):
+        if file.endswith('.simple'):
+            command_simple2rdat = 'simple_to_rdat.py ' + '../' + args.sequencefile.name + ' --simplefile ' + file + ' --name ' + args.sequencefile.name + ' --offset ' + str(args.offset) + ' --outprefix ' + primer_tag
+            # note: getting different .fa files for a single pair of FASTQs (multiple RNAs per sequencing run) is currently unsupported - see manual
+            print command_simple2rdat
+            f_log.write( '\nMaP2D command: ' + command_simple2rdat )
+            os.system( command_simple2rdat )
+
+    f_log.write( '\nFinished MaP2D analysis at: ' + timeStamp() + '\n' )
+
+os.chdir( currdir )
+
 f_log.close()
+
+
