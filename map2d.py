@@ -101,8 +101,10 @@ if args.config is not None:
     old_fastq_names = [os.path.basename(args.read1fastq.name), os.path.basename(args.read2fastq.name)]
     for primer_tag in primer_tags:
         new_fastq_names = [ primer_tag+'_S1_L001_R1_001.fastq', primer_tag+'_S1_L001_R2_001.fastq' ]
-    for (old_fastq_name,new_fastq_name) in zip(old_fastq_names,new_fastq_names):
-        os.system('mv 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+old_fastq_name+' 2_ShapeMapper/'+new_fastq_name)
+        print new_fastq_names
+        for (old_fastq_name,new_fastq_name) in zip(old_fastq_names,new_fastq_names):
+            os.system('mv 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+old_fastq_name+' 2_ShapeMapper/'+new_fastq_name)
+            print 'mv 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+old_fastq_name+' 2_ShapeMapper/'+new_fastq_name
 
     # Run ShapeMapper
     f_log.write( '\nStarting ShapeMapper analysis at: ' + timeStamp() )
@@ -140,7 +142,7 @@ if args.config is not None:
         os.system( command2 )
 
 
-######################## Generate RDAT of 2D data using fastq_to_rdat.py ########################
+######################## Generate RDAT of 2D data using simple_to_rdat.py ########################
 if args.config is not None:
     make_dir( currdir + '/3_MaP2D' )
     make_dir( currdir + '/3_MaP2D/simple_files')
@@ -160,7 +162,7 @@ if args.config is not None:
     os.chdir( currdir + '/3_MaP2D/simple_files')
     for file in os.listdir(currdir + '/3_MaP2D/simple_files'):
         if file.endswith('.simple'):
-            command_simple2rdat = 'simple_to_rdat.py ' + '../' + args.sequencefile.name + ' --simplefile ' + file + ' --name ' + args.sequencefile.name + ' --offset ' + str(args.offset) + ' --outprefix ' + primer_tag
+            command_simple2rdat = 'simple_to_rdat.py ' + '../' + args.sequencefile.name + ' --simplefile ' + file + ' --name ' + args.name + ' --offset ' + str(args.offset) + ' --outprefix ' + file.split('.')[0]
             # note: getting different .fa files for a single pair of FASTQs (multiple RNAs per sequencing run) is currently unsupported - see manual
             print command_simple2rdat
             f_log.write( '\nMaP2D command: ' + command_simple2rdat )
@@ -171,5 +173,4 @@ if args.config is not None:
 os.chdir( currdir )
 
 f_log.close()
-
 
