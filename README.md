@@ -35,10 +35,14 @@ The ExampleResults archive contains these expected outputs from running the anal
 The key modes of visualizing the MaP2D data are as a 2D plot (mutate-and-map style) and as mutation spectra (rates of mutation/deletion both across the sequence and on average).
 
 To view the 2D plot, open MATLAB and run:
+
     map2dplot('/Path/To/Tutorial/3_MaP2D/simple_files/RTB005_P4P6_P4P6noHP.reactivity.rdat');
+
 Compare the resulting plot to the 2D plot in the Figures folder: Example2D.eps
 
 To view the mutation spectra, open MATLAB and run:
+
     mut_heatmap('/Path/To/Tutorial/2_ShapeMapper/output/counted_mutations/RTB005_P4P6.csv',103:260,'',13);
+
 Compare the resulting plot to the mutation spectra in the Figures folder: ExampleSpectra.eps, ExampleSpectra_mut_avg.eps, ExampleSpectra_mut_max.eps
 
