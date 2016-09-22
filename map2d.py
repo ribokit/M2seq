@@ -67,7 +67,7 @@ if not os.path.exists( '1_Demultiplex/novobarcode_log_Distance4.txt' ):
     f_log.write( 'Starting Novobarcode demultiplexing at: ' + timeStamp() )
     print 'Starting Novobarcode demultiplexing'
     os.system('novobarcode -b ' + args.barcodes.name + ' -f ' + args.read1fastq.name + ' ' + args.read2fastq.name + ' -d 1_Demultiplex > 1_Demultiplex/novobarcode_log_Distance4.txt')
-    f_log.write( '\nFinished demultiplexing at: ' + timeStamp() )
+    f_log.write( '\nFinished demultiplexing at: ' + timeStamp() + '\n')
 
 print 'Reading barcodes from: '+args.barcodes.name
 f_log.write( 'Primers:\n' )
@@ -82,7 +82,7 @@ for line in lines:
     if len( cols[1] ) < 2: continue
     primer_tags.append( cols[0] )
     barcode_sequences[ cols[0] ] = cols[1]
-    f_log.write( line + '\n' )
+    f_log.write( line )
     print cols[0]+'\t'+cols[1]
 
 
@@ -163,7 +163,7 @@ if args.config is not None:
     for file in os.listdir(currdir + '/3_MaP2D/simple_files'):
         if file.endswith('.simple'):
             command_simple2rdat = 'simple_to_rdat.py ' + '../' + args.sequencefile.name + ' --simplefile ' + file + ' --name ' + args.name + ' --offset ' + str(args.offset) + ' --outprefix ' + file.split('.')[0]
-            # note: getting different .fa files for a single pair of FASTQs (multiple RNAs per sequencing run) is currently unsupported - see manual
+            # note: getting different .fa files for a single pair of FASTQs (multiple RNAs per sequencing run) is currently unsupported
             print command_simple2rdat
             f_log.write( '\nMaP2D command: ' + command_simple2rdat )
             os.system( command_simple2rdat )
