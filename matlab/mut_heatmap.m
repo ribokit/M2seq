@@ -48,15 +48,15 @@ if DIFF == 0;
         seqpos = 1:size(muts,2)-1;
     end
     colmap = jet(99);
-    startpos = offset+1
+    startpos = offset+1;
     seqrange = startpos:startpos+length(seqpos)-1;
     % figure; hist(reshape(muts(1:16,1:end-1),size(muts(1:16,1:end-1),1)*size(muts(1:16,1:end-1),2),1), 1000)
     clims = [0 0.004];                                 % specify constant limits for image color data mapping, so images of different datasets are comparable
-    figure; imagesc(seqpos,1:16,muts(1:16,seqrange),clims); axis image; set(gca,'tickdir','out','ytick',1:16,'yticklabel',mutation_list,'fontsize',10,'ticklength',[0.0025 0.025]); colormap(colmap); hold on; % image color data mapping is direct, so images of different datasets are comparable
+    figure; imagesc(seqpos,1:16,muts(1:16,seqrange),clims); axis image; set(gca,'tickdir','out','ytick',1:16,'yticklabel',mutation_list,'fontsize',10,'ticklength',[0.0025 0.025]); colormap(colmap); hold on;
     xlabel('Sequence position'); ylabel('Mutation'); title([titl ': Mutation spectrum'],'fontsize',10);
-    maxpos  = seqpos(max(find( mod(seqpos,20) == 0 )));
-    minpos  = seqpos(min(find( mod(seqpos,20) == 0 )));
-    make_lines(minpos:10:maxpos,'k',0.5); make_lines_horizontal(4:3:16,'k',0.5);
+    maxpos  = seqpos(max(find( mod(seqpos,10) == 0 )));
+    minpos  = seqpos(min(find( mod(seqpos,10) == 0 )));
+    make_lines(minpos-1:10:maxpos,'k',0.5); make_lines_horizontal(4:3:16,'k',0.5);
     % set(gca, 'Position', get(gca, 'OuterPosition') - get(gca, 'TightInset') * [-1 0 1 0; 0 -1 0 1; 0 0 1 0; 0 0 0 1]);
     if exist( 'save_path', 'var' ) && ~isempty( save_path ); save_fig(save_path); end
 
@@ -103,7 +103,7 @@ elseif DIFF == 1;
         xlabel('Sequence position'); ylabel('Mutation'); title(titl{k},'fontsize',10);
         maxpos  = seqpos(max(find( mod(seqpos,20) == 0 )));
         minpos  = seqpos(min(find( mod(seqpos,20) == 0 )));
-        make_lines(minpos:10:maxpos,'k',0.5); make_lines_horizontal(4:3:16,'k',0.5);
+        make_lines(minpos-1:10:maxpos,'k',0.5); make_lines_horizontal(4:3:16,'k',0.5);
         if exist( 'save_path', 'var' ) && ~isempty( save_path ); save_fig(save_path{k}); end
     end
 end

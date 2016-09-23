@@ -13,7 +13,7 @@ Add the MaP2D folder to your PATH.
 
 To test on example sequencing data, download the two example FASTQs from [this link](https://www.dropbox.com/sh/0xrs2aypzzlims9/AACFa_pbuZ8QYB1O2rE-1fN-a?dl=0) and move them to the Tutorial folder. Then, run:
 
-    map2d.py P4P6noHP.fa RTBbarcodes.fa Sample1_S1_L001_R1_001_sub.fastq Sample1_S1_L001_R2_001_sub.fastq --config example.cfg --offset 89
+    map2d.py P4P6.fa RTBbarcodes.fa Sample1_S1_L001_R1_001_sub.fastq Sample1_S1_L001_R2_001_sub.fastq --config example.cfg --offset 89
 * 'P4P6noHP.fa' [required] is a fasta-formatted file with the name and sequence of the RNA.
 * 'RTBbarcodes.fa' [required] is a Novobarcode-formatted file with the names and sequences of the barcodes in the RTB primers.
 * The read 1 and read 2 FASTQs are required inputs.
