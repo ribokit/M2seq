@@ -5,7 +5,7 @@ Analysis of 2D signal in mutational profiling sequencing data
 Ensure that you have the following installed:
 
 * Novobarcode, part of the Novoalign software package, which is freely available for educational and not-for-profit use. Download the latest version of Novoalign at http://www.novocraft.com/support/download/
-* ShapeMapper, software developed by the Weeks lab at UNC Chapel Hill for 1D analysis of mutational profiling data. Available at http://www.chem.unc.edu/rna/software.html
+* ShapeMapper, software developed by the Weeks lab at UNC Chapel Hill for 1D analysis of mutational profiling data. Available at http://www.chem.unc.edu/rna/software.html  (Make sure you go into that directory and run `make`.)
 * numpy
 * The RDATkit for handling RDAT data files. Available at https://github.com/hitrace/rdatkit
 
