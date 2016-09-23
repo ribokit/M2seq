@@ -182,7 +182,7 @@ def simple_to_rdat( args, sequence, name ):
         f_log.write( '\nFull-length filter: alignment must extend to at least position ' + str(args.start_pos_cutoff) )
         f_log.write( '\nQuality filter (use for 2D data if N or fewer mismatches to WT): N = ' + str(args.num_hits_cutoff) )
         f_log.write( '\nNumber of sequences passing full-length and quality filters: ' + str(fltnm) )
-        f_log.write( '\nNumber of sequences used for 2D data (at least 1 mutation): ' + str(usenm) )
+        f_log.write( '\nNumber of sequences used for 2D data (at least 1 mutation): ' + str(usenm) + '\n\n')
 
         # #### Get stop reactivities, using Fi/[F0 + F1 ... + Fi] expression.
         # sum_counts = start_pos_counts[ 0, 0 ]
