@@ -101,7 +101,7 @@ if args.config is not None:
     old_fastq_names = [os.path.basename(args.read1fastq.name), os.path.basename(args.read2fastq.name)]
     for primer_tag in primer_tags:
         new_fastq_names = [ primer_tag+'_S1_L001_R1_001.fastq', primer_tag+'_S1_L001_R2_001.fastq' ]
-        print new_fastq_names
+        # print new_fastq_names
         for (old_fastq_name,new_fastq_name) in zip(old_fastq_names,new_fastq_names):
             os.system('mv 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+old_fastq_name+' 2_ShapeMapper/'+new_fastq_name)
             print 'mv 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+old_fastq_name+' 2_ShapeMapper/'+new_fastq_name
