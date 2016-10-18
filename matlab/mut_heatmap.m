@@ -58,6 +58,7 @@ if DIFF == 0;
     minpos  = seqpos(min(find( mod(seqpos,10) == 0 )));
     make_lines(minpos-1:10:maxpos,'k',0.5); make_lines_horizontal(4:3:16,'k',0.5);
     % set(gca, 'Position', get(gca, 'OuterPosition') - get(gca, 'TightInset') * [-1 0 1 0; 0 -1 0 1; 0 0 1 0; 0 0 0 1]);
+    colorbar('ytick',[0 0.004]);
     if exist( 'save_path', 'var' ) && ~isempty( save_path ); save_fig(save_path); end
 
     if ~exist('sequence','var') || isempty( sequence );
@@ -73,10 +74,12 @@ if DIFF == 0;
     clims = [0 0.025];
     figure; imagesc(mut_avg,clims); axis image; set(gca,'tickdir','out','ytick',1:4,'xtick',1:5,'yticklabel',{'A','U','G','C'},'xticklabel',{'A','U','G','C','del'},'xaxisLocation','top','fontsize',30,'ticklength',[0.0025 0.025]); colormap(1-gray(100)); hold on;
     set(gca,'LooseInset',get(gca,'TightInset')); title([titl ': Average mutation rates'],'fontsize',20);
+    colorbar('ytick',[0 0.025]);
     if exist( 'save_path', 'var' ) && ~isempty( save_path ); save_fig([save_path '_muts_avg']); end
     
     figure; imagesc(mut_max,clims); axis image; set(gca,'tickdir','out','ytick',1:4,'xtick',1:5,'yticklabel',{'A','U','G','C'},'xticklabel',{'A','U','G','C','del'},'xaxisLocation','top','fontsize',30,'ticklength',[0.0025 0.025]); colormap(1-gray(100)); hold on;
     set(gca,'LooseInset',get(gca,'TightInset')); title([titl ': Maximum mutation rates'],'fontsize',20);
+    colorbar('ytick',[0 0.025]);
     if exist( 'save_path', 'var' ) && ~isempty( save_path ); save_fig([save_path '_muts_max']); end
 
 elseif DIFF == 1;

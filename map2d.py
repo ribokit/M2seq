@@ -124,7 +124,7 @@ if args.config is not None:
     os.chdir( currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/' )
     for file in os.listdir(currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'):
         if file.endswith('.txt'):
-            os.system('simplify_mutations.py ' + file)
+            os.system('muts_to_simple.py.py ' + file)
     f_log.write( '\nFinished generating simple files at: ' + timeStamp() )
 
     os.chdir( currdir )

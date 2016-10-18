@@ -30,14 +30,13 @@ parser = argparse.ArgumentParser( description='Generates a 2D correlated mutatio
 
 parser.add_argument('sequencefile', type=argparse.FileType('r'), nargs='+', help='name of sequence file in .fasta format')
 parser.add_argument('--simplefile', type=argparse.FileType('r'), help='name of .simple file')
-parser.add_argument('--name',       type=str,  help='name of RNA; by default take from sequencefile', default='PLACEHOLDER')
+parser.add_argument('--name',       type=str,  help='name of RNA; by default take from sequencefile')
 parser.add_argument('--offset',     type=int,  help='integer to add to residue numbers to get conventional numbers', default=0)
 parser.add_argument('--outprefix',  type=str,  default='out')
 parser.add_argument('--num_hits_cutoff',        type=int,  help='quality filter: maximum number of hits to allow before recording', default=10)
 parser.add_argument('--num_hits_cutoff_lower',  type=int,  help='filter minimum number of hits, for testing signal', default=-1)
 parser.add_argument('--start_pos_cutoff',       type=int,  help='full-length filter: minimal nucleotide position to which alignment must extend', default=10)
-parser.add_argument('--end_pos_cutoff',         type=int,  help='full-length filter: minimal number of nucleotides from 3''-end at which alignment must start', default=10)        ############################################################################################################
-parser.add_argument('--simplelinelengths',      type=bool,  help='Output file with both length of read and num mutations', default=False)
+parser.add_argument('--end_pos_cutoff',         type=int,  help='full-length filter: minimal number of nucleotides from 3''-end at which alignment must start', default=10)
 
 args = parser.parse_args()
 
@@ -51,19 +50,6 @@ for seqfile in args.sequencefile:
     print names[i]
     print seqs[i]
     i += 1
-
-# if args.name == 'PLACEHOLDER':
-#     args.name = sequencefile_lines[0].strip()[1:]
-
-
-def timeStamp():        # From ShapeMapper
-    t = time.localtime()
-    month = t.tm_mon
-    day = t.tm_mday
-    hour = t.tm_hour
-    minute = t.tm_min
-    second = t.tm_sec
-    return '%i:%i:%i, %i/%i'%(hour, minute, second, month, day)
 
 
 def output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata, WTdata_err, data2d, data2d_err, f_log ):
@@ -95,8 +81,8 @@ def output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata, WT
 
 
 def simple_to_rdat( args, sequence, name ):
-        print 'Starting analysis from simple file at ' + timeStamp()
-        f_log.write( 'Starting analysis from simple file at ' + timeStamp() + '\n\n' )
+        print 'Starting analysis from simple file at ' + time.strftime('%Y/%m/%d %H:%M:%S')
+        f_log.write( 'Starting analysis from simple file at ' + time.strftime('%Y/%m/%d %H:%M:%S') + '\n\n' )
         
         #### Get length and seqpos
         WTlen = len(sequence)
@@ -104,12 +90,6 @@ def simple_to_rdat( args, sequence, name ):
         
         #### Get mutation indices from simple data
         print 'Reading file: '+str(args.simplefile.name)
-
-        # #### Get data for distribution of start and end positions of reads, length and # muts per read
-        # f_startendpos = open(currdir + '/' + args.outprefix + '_startendpos.csv', 'w')
-        # if args.simplelinelengths:
-        #     f_lengthandmuts = open(currdir + '/' + args.outprefix + '_readlenandmuts.csv', 'w')
-        #     f_lengthandmuts.write( 'Read_length,Number_of_muts\n' )
 
         #### Set up arrays for 1D and 2D data
         count = 0
@@ -146,8 +126,6 @@ def simple_to_rdat( args, sequence, name ):
             mut_idx_init = array( [ (idx + start_pos_to_use - 1) for idx, val in enumerate(simple_line) if val == 1])
             mut_idx = [idx for idx in mut_idx_init if idx < WTlen]
             mut_counts = len( mut_idx )
-            # if args.simplelinelengths:
-            #     f_lengthandmuts.write( str(len(simple_string)) + ',' + str(mut_counts) + '\n' )
             if ( start_pos <= args.start_pos_cutoff ): mut_mat[0,mut_counts] += 1       # record mutations per read
             if ( mut_counts > args.num_hits_cutoff ): continue
             if ( mut_counts <= args.num_hits_cutoff_lower ): continue
@@ -155,7 +133,7 @@ def simple_to_rdat( args, sequence, name ):
             if ( start_pos <= args.start_pos_cutoff ):
                 if ( end_pos >= WTlen - args.end_pos_cutoff ):
                     if mut_counts > 0:
-                        WTdata[ 0, mut_idx ] += 1               # Build 1D profile
+                        WTdata[ 0, mut_idx ] += 1                   # Build 1D profile
                         usenm += 1
                     for mutpos in mut_idx:
                         data2d[mutpos, mut_idx] += 1                # Build 2D dataset
@@ -163,14 +141,11 @@ def simple_to_rdat( args, sequence, name ):
             # Record reactivity associated with reverse transcriptase stopping (probably should look at a 2D version of this, like in MOHCA-seq. -- rhiju)
             assert ( start_pos_to_use  <= (WTlen + 1) )
             if ( start_pos_to_use > WTlen ): continue
-            mod_pos = start_pos_to_use - 1                      # "start pos" actually records where reverse transcriptase stopped.
+            mod_pos = start_pos_to_use - 1                          # "start pos" actually records where reverse transcriptase stopped.
             # note further offset: mod_pos=0 means *no modifications*; mod_pos = 1 means modification at position 1
             # if we swtich to to 2D readout, maybe should decrement (add -1). Then no mod would actually *wrap* to WTlen (?)
             start_pos_counts[ 0, mod_pos ] += 1
-            stpnm += 1                                          # count sequences used for stop reactivities
-
-        # if args.simplelinelengths:
-        #     f_lengthandmuts.close()
+            stpnm += 1                                              # count sequences used for stop reactivities
 
         f_dist = open(currdir + '/' + args.outprefix + '_mutsperread.csv','w')
         f_dist.write( 'Number of mutations,Number of reads\n')
@@ -201,8 +176,6 @@ def simple_to_rdat( args, sequence, name ):
         WTdata_reactivity       = WTdata/fltnm
         WTdata_err              = np.sqrt(WTdata)
         WTdata_reactivity_err   = WTdata_err/fltnm
-        # # normalizes to total number of hits -- original choice
-        # WTdata_norm = WTdata/WTdata.sum()
 
         #### Get reactivity for 2D data
         # Normalize by total signal in row and store row indices for building RDAT file
@@ -216,8 +189,6 @@ def simple_to_rdat( args, sequence, name ):
                 # normalizes to total number of reads with modification at row_idx position -- should be a true 'modification fraction'
                 data2d_reactivity[row_idx, :]       = data2d[row_idx,:]     / data2d[ row_idx, row_idx ]      # [row_idx, row_idx] contains total reads with mod at row_idx position
                 data2d_reactivity_err[row_idx, :]   = data2d_err[row_idx,:] / data2d[ row_idx, row_idx ]      # normalize errors by same scale factor as reactivities
-                # # normalizes to total number of hits -- original choice
-                # data2d_norm[row_idx, :] = data2d[ row_idx, : ] / data2d[row_idx, :].sum()
             row_indices.append(row_idx)
 
         #### Output RDATs
@@ -229,10 +200,7 @@ def simple_to_rdat( args, sequence, name ):
         filename = currdir + '/' + args.outprefix + '_' + name +  '.raw.rdat'
         output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata, WTdata_err, data2d, data2d_err, f_log )
 
-        # filename = currdir + '/' + args.outprefix + '_' + name +  '.rdat'
-        # output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata_norm, data2d_norm, f_log )
-
-        f_log.write( '\nFinished analysis from simple file at ' + timeStamp() + '\n\n' )
+        f_log.write( '\nFinished analysis from simple file at ' + time.strftime('%Y/%m/%d %H:%M:%S') + '\n\n' )
 
         return
 

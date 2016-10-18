@@ -15,7 +15,7 @@ else
     r = R;
     reactivity = r.reactivity;
     seqpos = r.seqpos;
-    scalefactor = 10/median(median(r.reactivity))
+%     scalefactor = 10/median(median(r.reactivity))
     if ~exist( 'scalefactor' , 'var' ) || isempty(scalefactor); scalefactor = 10/median(median(nonzeros(r.reactivity))); end
 end
 
