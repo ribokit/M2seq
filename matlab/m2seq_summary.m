@@ -26,7 +26,7 @@ if ~isobject( r ) & ischar( r )
     r_name = r;
     r = read_rdat_file( r_name );
 end
-if ~exist( r_nomod ) 
+if ~exist( 'r_nomod', 'var' ) | length( r_nomod ) == 0
     r_nomod = [];
 elseif ~isobject( r_nomod ) & ischar( r_nomod )
     r_nomod = read_rdat_file( r_nomod );
@@ -48,9 +48,9 @@ scalefactor = [];
 m2seqplot( rZ, [], scalefactor );
 
 subplot( 2, 2, 4);
-%m2seqplot( rZ, [], scalefactor, [],  1 );
-print_mode = 0;
-cluster_z_scores( Z, r.structure, r.offset, print_mode );
+%print_mode = 0;
+%cluster_z_scores( Z, r.structure, r.offset, print_mode );
+m2net( Z, r );
 
 subplot(2,2,1);
 title( summary_title );

@@ -1,8 +1,26 @@
 function [mut_avg, mut_max, muts, muts_diff] = mut_heatmap(csv_path, seqpos, sequence, offset, titl, save_path)
+% [mut_avg, mut_max, muts, muts_diff] = mut_heatmap(csv_path, seqpos, sequence, offset, titl, save_path)
+%
 % Generates both mutation spectra across full sequence and average/maximum mutation matrix
-%   sequence needs to be full sequence given as ShapeMapper input
-%   offset is number of residues into sequence that region of interest begins minus 1 (so if ROI begins at 14, enter 13 for offset)
-
+%
+%  INPUTS 
+%   csv_path = csv format output(s) from SHAPEmapper "counted_mutations" directory:
+%               supply a single file to get mutation spectrum
+%               supply cell with more than one file to do the DIFF between the two.
+%   seqpos   = sequence positions to plot (can use conventional numbering -- 
+%               length of this vector determines how much to plot)
+%   sequence = needs to be full sequence given as ShapeMapper input
+%   offset   = number of residues into sequence that region of interest begins minus 1 (so if ROI begins at 14, enter 13 for offset)
+%                Note: this is not the same as offset typically used in
+%                RDATs, which shifts to conventional numbering
+%   title    = title to put on figure [default: csv name]
+%   save_path= where to save [default: no save]
+%               if supplied as a *string*, save each figure to file with that name.
+%               if supplied as a doublet of integers, like [9,1],
+%                 show the plots on row 1 out of 9 rows in the figure.
+%
+% (C) Clarence Cheng, Das laboratory, Stanford University 2016-2017
+%
 if ~exist('titl','var') || isempty(titl);
     tmp  = strsplit(csv_path,'/');
     titl = tmp{end};
@@ -15,6 +33,14 @@ if ischar(csv_path);
     DIFF = 0;
 elseif iscell(csv_path);
     DIFF = 1;
+end
+
+SAVE_EPS   = exist( 'save_path', 'var' ) && ~isempty( save_path ) && ischar( save_path);
+DO_SUBPLOT = exist( 'save_path', 'var' ) && isnumeric( save_path );
+if DO_SUBPLOT
+    assert( length( save_path ) == 2 );
+    num_rows = save_path(1); row = save_path(2);
+    assert( row <= num_rows );
 end
 
 mutation_list = {
@@ -35,6 +61,7 @@ mutation_list = {
 'C->T', ...
 'C->G', ...
 };
+set(gcf, 'PaperPositionMode','auto','color','white');
 
 if DIFF == 0;
     muts_init = csvread(csv_path,2,3);
@@ -49,38 +76,48 @@ if DIFF == 0;
     end
     colmap = jet(99);
     startpos = offset+1;
-    seqrange = startpos:startpos+length(seqpos)-1;
+    seqrange = [ startpos : (startpos+length(seqpos)-1) ];
     % figure; hist(reshape(muts(1:16,1:end-1),size(muts(1:16,1:end-1),1)*size(muts(1:16,1:end-1),2),1), 1000)
     clims = [0 0.004];                                 % specify constant limits for image color data mapping, so images of different datasets are comparable
-    figure; imagesc(seqpos,1:16,muts(1:16,seqrange),clims); axis image; set(gca,'tickdir','out','ytick',1:16,'yticklabel',mutation_list,'fontsize',10,'ticklength',[0.0025 0.025]); colormap(colmap); hold on;
-    xlabel('Sequence position'); ylabel('Mutation'); title([titl ': Mutation spectrum'],'fontsize',10);
+    if DO_SUBPLOT; axes('Position', [0.05,1-(row/num_rows), 0.7, 1/num_rows] ); else; figure; end;
+    imagesc(seqpos,1:16,muts(1:16,seqrange),clims); axis image; 
+    set(gca,'tickdir','out','ytick',1:16,'yticklabel',mutation_list,'fontsize',10,'ticklength',[0.0025 0.025]); colormap(gca,colmap); hold on;
+    xlabel('Sequence position'); ylabel('Mutation'); title([titl ': Mutation spectrum'],'fontsize',10,'interpreter','none');
     maxpos  = seqpos(max(find( mod(seqpos,10) == 0 )));
     minpos  = seqpos(min(find( mod(seqpos,10) == 0 )));
     make_lines(minpos-1:10:maxpos,'k',0.5); make_lines_horizontal(4:3:16,'k',0.5);
     % set(gca, 'Position', get(gca, 'OuterPosition') - get(gca, 'TightInset') * [-1 0 1 0; 0 -1 0 1; 0 0 1 0; 0 0 0 1]);
     colorbar('ytick',[0 0.004]);
-    if exist( 'save_path', 'var' ) && ~isempty( save_path ); save_fig(save_path); end
+    if SAVE_EPS; save_fig(save_path); end
 
+    % would be good to just get sequence from file...
     if ~exist('sequence','var') || isempty( sequence );
         fid = fopen(csv_path,'r');
         seqcell = textscan(fid,'%s','delimiter','\n');
         seqarry = strsplit(seqcell{1}{2},',');
         sequence = strjoin(seqarry(4:end),'');
     end
-
+    
     ind = find_idx(sequence, offset, seqpos);
     [mut_avg, mut_max] = mut_matrix(muts, ind);
 
     clims = [0 0.025];
-    figure; imagesc(mut_avg,clims); axis image; set(gca,'tickdir','out','ytick',1:4,'xtick',1:5,'yticklabel',{'A','U','G','C'},'xticklabel',{'A','U','G','C','del'},'xaxisLocation','top','fontsize',30,'ticklength',[0.0025 0.025]); colormap(1-gray(100)); hold on;
-    set(gca,'LooseInset',get(gca,'TightInset')); title([titl ': Average mutation rates'],'fontsize',20);
+    if DO_SUBPLOT; axes('Position', [0.77,1-(row/num_rows), 0.1, 1/num_rows] ); else; figure; end;
+    imagesc(mut_avg,clims); axis image; set(gca,'tickdir','out','ytick',1:4,'xtick',1:5,'yticklabel',{'A','U','G','C'},'xticklabel',{'A','U','G','C','del'},'xaxisLocation','top','fontsize',30,'ticklength',[0.0025 0.025]); 
+    if DO_SUBPLOT; set(gca,'fontsize',8); end;
+    colormap(gca,1-gray(100)); hold on;
+    if DO_SUBPLOT; title( 'Avg. mut. rates' ); else; set(gca,'LooseInset',get(gca,'TightInset')); title([titl ': Average mutation rates'],'fontsize',20,'interpreter','none');end;
     colorbar('ytick',[0 0.025]);
-    if exist( 'save_path', 'var' ) && ~isempty( save_path ); save_fig([save_path '_muts_avg']); end
+    if SAVE_EPS; save_fig([save_path '_muts_avg']); end
     
-    figure; imagesc(mut_max,clims); axis image; set(gca,'tickdir','out','ytick',1:4,'xtick',1:5,'yticklabel',{'A','U','G','C'},'xticklabel',{'A','U','G','C','del'},'xaxisLocation','top','fontsize',30,'ticklength',[0.0025 0.025]); colormap(1-gray(100)); hold on;
-    set(gca,'LooseInset',get(gca,'TightInset')); title([titl ': Maximum mutation rates'],'fontsize',20);
+    if DO_SUBPLOT; axes('Position', [0.87,1-(row/num_rows), 0.1, 1/num_rows] ); else; figure; end;
+    imagesc(mut_max,clims); axis image; set(gca,'tickdir','out','ytick',1:4,'xtick',1:5,'yticklabel',{'A','U','G','C'},'xticklabel',{'A','U','G','C','del'},'xaxisLocation','top','fontsize',30,'ticklength',[0.0025 0.025]); 
+    if DO_SUBPLOT; set(gca,'fontsize',8); end;
+    colormap(gca,1-gray(100)); hold on;
+    set(gca,'LooseInset',get(gca,'TightInset')); 
+    if DO_SUBPLOT; title('Max mut. rates');else; title([titl ': Maximum mutation rates'],'fontsize',20,'interpreter','none');end;
     colorbar('ytick',[0 0.025]);
-    if exist( 'save_path', 'var' ) && ~isempty( save_path ); save_fig([save_path '_muts_max']); end
+    if SAVE_EPS; save_fig([save_path '_muts_max']); end
 
 elseif DIFF == 1;
     for k = 1:length(csv_path);
@@ -102,8 +139,8 @@ elseif DIFF == 1;
         startpos = offset+1
         seqrange = startpos:startpos+length(seqpos)-1;
         % figure; hist(reshape(muts_diff(1:16,1:end-1),size(muts_diff(1:16,1:end-1),1)*size(muts_diff(1:16,1:end-1),2),1), 1000)
-        figure; imagesc(seqpos,1:16,muts_diff(:,1:end-1),clims); axis image; set(gca,'tickdir','out','ytick',1:16,'yticklabel',mutation_list,'fontsize',10,'ticklength',[0.0025 0.025]); colormap(cmap); hold on;
-        xlabel('Sequence position'); ylabel('Mutation'); title(titl{k},'fontsize',10);
+        figure(4); imagesc(seqpos,1:16,muts_diff(:,1:end-1),clims); axis image; set(gca,'tickdir','out','ytick',1:16,'yticklabel',mutation_list,'fontsize',10,'ticklength',[0.0025 0.025]); colormap(cmap); hold on;
+        xlabel('Sequence position'); ylabel('Mutation'); title(titl{k},'fontsize',10,'interpreter','none');
         maxpos  = seqpos(max(find( mod(seqpos,20) == 0 )));
         minpos  = seqpos(min(find( mod(seqpos,20) == 0 )));
         make_lines(minpos-1:10:maxpos,'k',0.5); make_lines_horizontal(4:3:16,'k',0.5);
