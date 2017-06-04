@@ -19,11 +19,33 @@ function [mut_avg, mut_max, muts, muts_diff] = mut_heatmap(csv_path, seqpos, seq
 %               if supplied as a doublet of integers, like [9,1],
 %                 show the plots on row 1 out of 9 rows in the figure.
 %
-% (C) Clarence Cheng, Das laboratory, Stanford University 2016-2017
+% OUTPUTS
+%   mut_avg  = average mutation matrix  [4x5]
+%   mut_max  = max mutation  matrix [4x5]
+%   muts     = mutation specturm per position [17 X N], as follows
+%              'del A','del T','del G', 'del C', ...
+%              'A->T','A->G','A->C', ...
+%              'T->A','T->G','T->C', ...
+%              'G->A','G->T','G->C', ...
+%              'C->A','C->T','C->G', ...
+%              'Total counts'
 %
+% (C) Clarence Cheng, Das laboratory, Stanford University 2016-2017
+% (C) Rhiju Das, 2017
+mut_avg = [];
+mut_max = [];
+muts = [];
+muts_diff = [];
 if ~exist('titl','var') || isempty(titl);
-    tmp  = strsplit(csv_path,'/');
-    titl = tmp{end};
+    if ischar( csv_path )
+        tmp  = strsplit(csv_path,'/');
+        titl = tmp{end};
+    else
+        for i = 1:length( csv_path )
+            tmp  = strsplit(csv_path{i},'/');
+            titl{i} = tmp{end};
+        end
+    end
 end
 if ~exist('offset','var') || isempty( offset );
     offset = 0;
@@ -65,9 +87,8 @@ set(gcf, 'PaperPositionMode','auto','color','white');
 
 if DIFF == 0;
     muts_init = csvread(csv_path,2,3);
-    muts = muts_init;
-    for i = 1:16;
-        for j = 1:size(muts,2)-1;
+    for i = 1:17;
+        for j = 1:size(muts_init,2)-1;
             muts(i,j) = muts_init(i,j)/muts_init(18,j);
         end
     end
@@ -129,25 +150,34 @@ elseif DIFF == 1;
             end
         end
         if ~exist('seqpos','var') || isempty(seqpos);
-            seqpos = 1:size(muts{k},2)-1
+            seqpos = 1:size(muts{k},2)-1;
         end
     end
     cmap = redblue(99);
     for k = 1:length(csv_path)-1;
         muts_diff = (muts{1}(1:16,:)-muts{k+1}(1:16,:));
         clims = [-0.004 0.004];                                 % specify constant limits for image color data mapping, so images of different datasets are comparable
-        startpos = offset+1
+        startpos = offset+1;
         seqrange = startpos:startpos+length(seqpos)-1;
         % figure; hist(reshape(muts_diff(1:16,1:end-1),size(muts_diff(1:16,1:end-1),1)*size(muts_diff(1:16,1:end-1),2),1), 1000)
-        figure(4); imagesc(seqpos,1:16,muts_diff(:,1:end-1),clims); axis image; set(gca,'tickdir','out','ytick',1:16,'yticklabel',mutation_list,'fontsize',10,'ticklength',[0.0025 0.025]); colormap(cmap); hold on;
+        figure(4); imagesc(seqpos,1:16,muts_diff(:,1:end-1),clims); axis image; 
+        set(gca,'tickdir','out','ytick',1:16,'yticklabel',mutation_list,'fontsize',10,'ticklength',[0.0025 0.025]); colormap(cmap); hold on;
         xlabel('Sequence position'); ylabel('Mutation'); title(titl{k},'fontsize',10,'interpreter','none');
         maxpos  = seqpos(max(find( mod(seqpos,20) == 0 )));
         minpos  = seqpos(min(find( mod(seqpos,20) == 0 )));
-        make_lines(minpos-1:10:maxpos,'k',0.5); make_lines_horizontal(4:3:16,'k',0.5);
-        if exist( 'save_path', 'var' ) && ~isempty( save_path ); save_fig(save_path{k}); end
+        make_lines(minpos-1:10:maxpos,'k',0.5); make_lines_horizontal(4:3:16,'k',1);
+        make_lines_horizontal(1:16,[0.6 0.6 0.6],0.25);
+        if SAVE_EPS; save_fig(save_path{k}); end
     end
 end
 
+function cmap = redblue( N );
+cmap = ones( N, 3 );
+n = (N-1)/2;
+cmap( 1:n, 1) = [1:n]/n;; % blue
+cmap( 1:n, 2) = [1:n]/n;; % blue
+cmap( (n+1) + [1:n], 2) = [n:-1:1]/n; % red
+cmap( (n+1) + [1:n], 3) = [n:-1:1]/n; % red
 
 function [ind] = find_idx(sequence, offset, seqpos)
 seq = sequence;
