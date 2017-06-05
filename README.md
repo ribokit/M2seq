@@ -22,7 +22,7 @@ To test on example sequencing data, download the two example FASTQs from [this l
 * Make sure no spaces are in any of the folder names parent to this directory -- you may see fails of bowtie2 otherwise.
 * *Useful tip* you may want to do a 'pilot run' with test fastq files that hold just a few test lines from your full `FASTQ` files. Prepare these as `head -n 100000  Sample1_S1_L001_R1_001.fastq  > test/Sample1_S1_L001_R1_001.fastq` and
 `head -n 100000  Sample1_S1_L001_R2_001.fastq  > test/Sample1_S1_L001_R2_001.fastq` and supply `test/RTBbarcodes.fa Sample1_S1_L001_R1_001.fastq test/Sample1_S1_L001_R2_001.fastq` in the `m2seq.py` command line.
-* If you need to rerun, you'll need to cleanly remove the output directories: `rm 
+* If you need to rerun, you'll need to cleanly remove the previous output directories: `rm -rf 1_Demultiplex/ 2_ShapeMapper/ 3_MaP2D/`.
 
 The `m2seq.py` command performs the following:
 * First, it uses Novobarcode to demultiplex the pairs of sequencing reads using the barcodes provided in RTBbarcodes.fa
