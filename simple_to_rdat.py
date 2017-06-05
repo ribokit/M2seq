@@ -23,7 +23,7 @@ import sys
 import string
 import re
 from itertools import izip_longest
-from rdatkit.datahandlers import RDATFile
+from rdatkit.handler import RDATFile
 from matplotlib.pylab import *
 
 parser = argparse.ArgumentParser( description='Generates a 2D correlated mutational profiling dataset using demultiplexed Read1 and Read 2 files, aligned Read1 and Read2 text files, or a .simple file')
@@ -60,7 +60,7 @@ def output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata, WT
         offset = args.offset
         version = 0.34
         comments = 'Created from %s using simple_to_rdat.py\n' % (args.simplefile.name)
-                
+
         annotations = {'experimentType:MutationalProfiling'}
         data_annotations = []
         data_annotations.append({'mutation':'WT'})
@@ -71,7 +71,7 @@ def output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata, WT
         data = np.concatenate([WTdata, data2d], axis=0)                        # combine WT data and 2D data
 
         r = RDATFile()
-        r.save_a_construct(construct, data, sequence_RNA, structure, offset, annotations, data_annotations, filename, comments, version)
+        r.save_construct(construct, data, sequence_RNA, structure, offset, annotations, data_annotations, filename, comments, version)
         # Note: Should include # of simple file lines, filters used, and # mutants passing filters in RDAT file
         #       and edit read_rdat_file.m in HiTRACE to read these figures; will streamline plotting
 
@@ -83,11 +83,11 @@ def output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata, WT
 def simple_to_rdat( args, sequence, name ):
         print 'Starting analysis from simple file at ' + time.strftime('%Y/%m/%d %H:%M:%S')
         f_log.write( 'Starting analysis from simple file at ' + time.strftime('%Y/%m/%d %H:%M:%S') + '\n\n' )
-        
+
         #### Get length and seqpos
         WTlen = len(sequence)
         seqpos = arange(1, WTlen+1) + args.offset
-        
+
         #### Get mutation indices from simple data
         print 'Reading file: '+str(args.simplefile.name)
 
@@ -137,7 +137,7 @@ def simple_to_rdat( args, sequence, name ):
                         usenm += 1
                     for mutpos in mut_idx:
                         data2d[mutpos, mut_idx] += 1                # Build 2D dataset
-                    fltnm += 1                                      # count sequences that pass filters 
+                    fltnm += 1                                      # count sequences that pass filters
             # Record reactivity associated with reverse transcriptase stopping (probably should look at a 2D version of this, like in MOHCA-seq. -- rhiju)
             assert ( start_pos_to_use  <= (WTlen + 1) )
             if ( start_pos_to_use > WTlen ): continue
@@ -170,7 +170,7 @@ def simple_to_rdat( args, sequence, name ):
         if fltnm == 0:
             f_log.write( '\nNo sequences passing both full-length and quality filters! Setting normalization factor for "modification fraction" to 1\n' )
             fltnm = 1
-        
+
         #### Get reactivity for WT data
         # normalizes to total number of reads -- should be a true 'modification fraction'
         WTdata_reactivity       = WTdata/fltnm

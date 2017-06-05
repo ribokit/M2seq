@@ -124,7 +124,7 @@ if args.config is not None:
     os.chdir( currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/' )
     for file in os.listdir(currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'):
         if file.endswith('.txt'):
-            os.system('muts_to_simple.py.py ' + file)
+            os.system('muts_to_simple.py ' + file)
     f_log.write( '\nFinished generating simple files at: ' + timeStamp() )
 
     os.chdir( currdir )
@@ -155,7 +155,7 @@ if args.config is not None:
     # os.chdir( currdir )
     for file in os.listdir(currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'):
         if file.endswith('.simple'):
-            os.system('mv "' + currdir + '"/2_ShapeMapper/output/mutation_strings_oldstyle/' + file + ' ' + currdir + '/3_MaP2D/simple_files/')
+            os.system('mv "' + currdir + '"/2_ShapeMapper/output/mutation_strings_oldstyle/' + file + ' "' + currdir + '"/3_MaP2D/simple_files/')
 
     # Run simple_to_rdat.py
     os.system('cp ' + args.sequencefile.name + ' "' + currdir + '"/3_MaP2D/' + args.name + '.fa')
