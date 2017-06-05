@@ -35,7 +35,7 @@ sequencefile_lines = args.sequencefile.readlines()
 sequence = sequencefile_lines[1].strip().upper()
 
 if args.name == 'PLACEHOLDER':
-    args.name = sequencefile_lines[0].strip()[2:]
+    args.name = sequencefile_lines[0].strip()[1:]
     print args.name
 
 currdir = os.getcwd()
@@ -109,10 +109,10 @@ if args.config is not None:
     # Run ShapeMapper
     f_log.write( '\nStarting ShapeMapper analysis at: ' + timeStamp() )
     print 'Starting ShapeMapper analysis'
-    print 'cp ' + args.sequencefile.name + ' ' + currdir + '/2_ShapeMapper/' + args.name + '.fa'
-    print 'cp ' + args.config.name + ' ' + currdir + '/2_ShapeMapper/' + args.name + '.cfg'
-    os.system('cp ' + args.sequencefile.name + ' ' + currdir + '/2_ShapeMapper/' + args.name + '.fa')
-    os.system('cp ' + args.config.name + ' ' + currdir + '/2_ShapeMapper/' + args.name + '.cfg')
+    print 'cp ' + args.sequencefile.name + ' "' + currdir + '"/2_ShapeMapper/' + args.name + '.fa'
+    print 'cp ' + args.config.name + ' "' + currdir + '"/2_ShapeMapper/' + args.name + '.cfg'
+    os.system('cp ' + args.sequencefile.name + ' "' + currdir + '"/2_ShapeMapper/' + args.name + '.fa')
+    os.system('cp ' + args.config.name + ' "' + currdir + '"/2_ShapeMapper/' + args.name + '.cfg')
     os.chdir( currdir + '/2_ShapeMapper' )
     command_ShapeMapper = 'ShapeMapper.py ' + args.name + '.cfg'
     f_log.write( '\nShapeMapper command: ' + command_ShapeMapper )
@@ -155,10 +155,10 @@ if args.config is not None:
     # os.chdir( currdir )
     for file in os.listdir(currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'):
         if file.endswith('.simple'):
-            os.system('mv ' + currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/' + file + ' ' + currdir + '/3_MaP2D/simple_files/')
+            os.system('mv "' + currdir + '"/2_ShapeMapper/output/mutation_strings_oldstyle/' + file + ' ' + currdir + '/3_MaP2D/simple_files/')
 
     # Run simple_to_rdat.py
-    os.system('cp ' + args.sequencefile.name + ' ' + currdir + '/3_MaP2D/' + args.name + '.fa')
+    os.system('cp ' + args.sequencefile.name + ' "' + currdir + '"/3_MaP2D/' + args.name + '.fa')
     os.chdir( currdir + '/3_MaP2D/simple_files')
     for file in os.listdir(currdir + '/3_MaP2D/simple_files'):
         if file.endswith('.simple'):
