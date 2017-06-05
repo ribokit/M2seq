@@ -1,4 +1,4 @@
-# MaP2D
+# M2seq
 
 Analysis of 2D signal in mutational profiling sequencing data
 
@@ -6,14 +6,15 @@ Ensure that you have the following installed:
 
 * Novobarcode, part of the Novoalign software package, which is freely available for educational and not-for-profit use. Download the latest version of Novoalign at http://www.novocraft.com/support/download/
 * ShapeMapper, software developed by the Weeks lab at UNC Chapel Hill for 1D analysis of mutational profiling data. Available at http://www.chem.unc.edu/rna/software.html  (Make sure you go into that directory and run `make`.)
+* BowTie2 is needed for ShapeMapper. Available here: https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.3.2.
 * numpy
 * The RDATkit for handling RDAT data files. Available at https://github.com/hitrace/rdatkit
 
-Add the MaP2D folder to your PATH.
+Add the M2seq, novobarcode, etc. folders to your PATH. For example in your `.bashrc` add lines like `PATH=$PATH:$HOME/src/M2seq`.
 
 To test on example sequencing data, download the two example FASTQs from [this link](https://www.dropbox.com/sh/0xrs2aypzzlims9/AACFa_pbuZ8QYB1O2rE-1fN-a?dl=0) and move them to the Tutorial folder. Then, run:
 
-    map2d.py P4P6.fa RTBbarcodes.fa Sample1_S1_L001_R1_001_sub.fastq Sample1_S1_L001_R2_001_sub.fastq --config example.cfg --offset 89
+    m2seq.py P4P6.fa RTBbarcodes.fa Sample1_S1_L001_R1_001_sub.fastq Sample1_S1_L001_R2_001_sub.fastq --config example.cfg --offset 89
 * `P4P6.fa` [required] is a fasta-formatted file with the name and sequence of the RNA. Note that the name of the fasta file and the sequence in the fasta file must match the name of the reference sequence given in the config file.
 * `RTBbarcodes.fa` [required] is a Novobarcode-formatted file with the names and sequences of the barcodes in the RTB primers.
 * The read 1 and read 2 `FASTQ`s are required inputs.
