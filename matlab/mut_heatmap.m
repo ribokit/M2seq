@@ -5,8 +5,10 @@ function [mut_avg, mut_max, muts, muts_diff] = mut_heatmap(csv_path, seqpos, seq
 %
 %  INPUTS 
 %   csv_path = csv format output(s) from SHAPEmapper "counted_mutations" directory:
-%               supply a single file to get mutation spectrum
-%               supply cell with more than one file to do the DIFF between the two.
+%                -- supply directory name to get mutation spectra for all
+%                     .csv files in directory (default: './' )
+%                -- supply a single file to get mutation spectrum
+%                -- supply cell with more than one file to do the DIFF between the two.
 %   seqpos   = sequence positions to plot (can use conventional numbering -- 
 %               length of this vector determines how much to plot)
 %   sequence = needs to be full sequence given as ShapeMapper input
@@ -36,6 +38,20 @@ mut_avg = [];
 mut_max = [];
 muts = [];
 muts_diff = [];
+
+if ~exist( 'csv_path' ) | isempty( csv_path )
+    csv_path = './';
+end
+if ischar(csv_path);
+    DIFF = 0;
+    if exist( csv_path, 'dir' )
+        run_on_all_csvs( csv_path );
+        return;
+    end
+elseif iscell(csv_path);
+    DIFF = 1;
+end
+
 if ~exist('titl','var') || isempty(titl);
     if ischar( csv_path )
         tmp  = strsplit(csv_path,'/');
@@ -49,12 +65,6 @@ if ~exist('titl','var') || isempty(titl);
 end
 if ~exist('offset','var') || isempty( offset );
     offset = 0;
-end
-
-if ischar(csv_path);
-    DIFF = 0;
-elseif iscell(csv_path);
-    DIFF = 1;
 end
 
 SAVE_EPS   = exist( 'save_path', 'var' ) && ~isempty( save_path ) && ischar( save_path);
@@ -238,3 +248,31 @@ function save_fig(save_path)
 print( gcf, '-depsc2', '-loose', '-r300', save_path);
 fprintf( ['Created: ', save_path, '\n'] );
 hgsave( save_path );
+
+
+%%%%%%%%%%
+function run_on_all_csvs( csv_path );
+
+csv_names = dir( [csv_path, '/*.csv' ] );
+
+% plot 8 at a time
+numrows = 8;
+clf;
+epsdir = [csv_path,'/mut_heatmaps/'];
+if ~exist( epsdir ); mkdir( epsdir ); end;
+plot_count = 0;
+for i = 1:length( csv_names )
+    csv_name = csv_names(i).name;
+    sequence = [];
+    mut_heatmap( csv_name,[],[],[],[],[numrows,mod(i-1,numrows)+1]);
+    if mod( i, numrows ) == 0 | i == length( csv_names ); 
+        plot_count = plot_count+1;
+        eps_file = [epsdir,'mut_heatmap',num2str(plot_count),'.eps'];
+        fprintf( 'Creating: %s\n',eps_file );
+        print(eps_file,'-depsc2');
+    end
+    if mod( i, numrows ) == 0 & i ~= length( csv_names ); 
+        pause;
+        clf; 
+    end;
+end
