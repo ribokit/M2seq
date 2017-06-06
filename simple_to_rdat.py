@@ -46,7 +46,7 @@ names = []
 for seqfile in args.sequencefile:
     seqfile_lines = seqfile.readlines()
     seqs.append( seqfile_lines[1].strip().upper().replace("U","T") )
-    names.append( seqfile_lines[0].strip()[2:] )
+    names.append( seqfile_lines[0].strip()[1:] )
     print names[i]
     print seqs[i]
     i += 1
@@ -71,7 +71,7 @@ def output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata, WT
         data = np.concatenate([WTdata, data2d], axis=0)                        # combine WT data and 2D data
 
         r = RDATFile()
-        r.save_construct(construct, data, sequence_RNA, structure, offset, annotations, data_annotations, filename, comments, version)
+        r.save_construct(construct, data, sequence_RNA, structure, offset, annotations, data_annotations, filename, comments, version, seqpos)
         # Note: Should include # of simple file lines, filters used, and # mutants passing filters in RDAT file
         #       and edit read_rdat_file.m in HiTRACE to read these figures; will streamline plotting
 
@@ -86,7 +86,7 @@ def simple_to_rdat( args, sequence, name ):
 
         #### Get length and seqpos
         WTlen = len(sequence)
-        seqpos = arange(1, WTlen+1) + args.offset
+        seqpos = arange( 1, WTlen+1 ) + args.offset
 
         #### Get mutation indices from simple data
         print 'Reading file: '+str(args.simplefile.name)
@@ -193,7 +193,7 @@ def simple_to_rdat( args, sequence, name ):
 
         #### Output RDATs
         # reactivity RDAT (normalize by total reads with a mutation at row_idx)
-        filename = currdir + '/' + args.outprefix + '_' + name +  '.reactivity.rdat'
+        filename = currdir + '/' + args.outprefix + '.reactivity.rdat'
         output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata_reactivity, WTdata_reactivity_err, data2d_reactivity, data2d_reactivity_err, f_log )
 
         # raw RDAT (# reads not normalized; can subsequently normalize by e.g. total reads per barcode, total aligned reads, total reads with >=1 mutation)
