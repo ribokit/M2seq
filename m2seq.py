@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 ###############################################################################
-# Analysis of 2D signal in mutational profiling sequencing data (MaP2D)
+# Analysis of 2D signal in mutational profiling sequencing data (M2seq)
 ###############################################################################
 #
-# MaP2D
+# M2seq
 #
 # This script takes raw FASTQ files from a sequencing run and performs the following:
 #
@@ -144,31 +144,31 @@ if args.config is not None:
 
 ######################## Generate RDAT of 2D data using simple_to_rdat.py ########################
 if args.config is not None:
-    make_dir( currdir + '/3_MaP2D' )
-    make_dir( currdir + '/3_MaP2D/simple_files')
+    make_dir( currdir + '/3_M2seq' )
+    make_dir( currdir + '/3_M2seq/simple_files')
     os.chdir( currdir )
 
-    print 'Starting MaP2D analysis'
-    f_log.write( '\nStarting MaP2D analysis at: ' + timeStamp() + '\n' )
+    print 'Starting M2seq analysis'
+    f_log.write( '\nStarting M2seq analysis at: ' + timeStamp() + '\n' )
 
-    # Move simple format files and counted mutations to MaP2D folder
+    # Move simple format files and counted mutations to M2seq folder
     # os.chdir( currdir )
     for file in os.listdir(currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'):
         if file.endswith('.simple'):
-            os.system('mv "' + currdir + '"/2_ShapeMapper/output/mutation_strings_oldstyle/' + file + ' "' + currdir + '"/3_MaP2D/simple_files/')
+            os.system('mv "' + currdir + '"/2_ShapeMapper/output/mutation_strings_oldstyle/' + file + ' "' + currdir + '"/3_M2seq/simple_files/')
 
     # Run simple_to_rdat.py
-    os.system('cp ' + args.sequencefile.name + ' "' + currdir + '"/3_MaP2D/' + args.name + '.fa')
-    os.chdir( currdir + '/3_MaP2D/simple_files')
-    for file in os.listdir(currdir + '/3_MaP2D/simple_files'):
+    os.system('cp ' + args.sequencefile.name + ' "' + currdir + '"/3_M2seq/' + args.name + '.fa')
+    os.chdir( currdir + '/3_M2seq/simple_files')
+    for file in os.listdir(currdir + '/3_M2seq/simple_files'):
         if file.endswith('.simple'):
             command_simple2rdat = 'simple_to_rdat.py ' + '../' + args.sequencefile.name + ' --simplefile ' + file + ' --name ' + args.name + ' --offset ' + str(args.offset) + ' --outprefix ' + file.split('.')[0]
             # note: getting different .fa files for a single pair of FASTQs (multiple RNAs per sequencing run) is currently unsupported
             print command_simple2rdat
-            f_log.write( '\nMaP2D command: ' + command_simple2rdat )
+            f_log.write( '\nM2seq command: ' + command_simple2rdat )
             os.system( command_simple2rdat )
 
-    f_log.write( '\nFinished MaP2D analysis at: ' + timeStamp() + '\n' )
+    f_log.write( '\nFinished M2seq analysis at: ' + timeStamp() + '\n' )
 
 os.chdir( currdir )
 
