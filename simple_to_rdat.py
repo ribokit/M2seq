@@ -114,7 +114,10 @@ def simple_to_rdat( args, sequence, name ):
             end_pos = int(fields[1])
             # f_startendpos.write(str(start_pos) + ',' + str(end_pos) + '\n')
             simple_string = fields[2].strip()   # Remove endline
-            assert( len(simple_string) == (int( fields[1]) - int(fields[0]) + 1 ) )
+            if len(simple_string) != (int( fields[1]) - int(fields[0]) + 1 ):
+                continue
+
+            #assert( len(simple_string) == (int( fields[1]) - int(fields[0]) + 1 ) )
             simple_line = [ int(x) for x in simple_string ]
             count += 1                          # Record total sequences
             if count % 50000 == 0: print 'Reading line number ', count

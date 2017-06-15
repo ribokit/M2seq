@@ -18,6 +18,11 @@
 import os, sys, time
 import argparse
 
+file_path = os.path.realpath(__file__)
+spl = file_path.split("/")
+base_dir = "/".join(spl[:-1])
+
+
 parser = argparse.ArgumentParser()
 
 parser.add_argument('sequencefile', type=argparse.FileType('r'))
@@ -92,19 +97,28 @@ for line in lines:
 #  Under countMutations options, minPhredtoCount = 20
 #  Under countMutations options, makeOldMutationStrings = on (write mutation strings in format that can be converted to binary .simple files)
 
-if args.config is not None:
+
+"""if args.config is not None:
     make_dir( currdir + '/2_ShapeMapper' )
 
     os.chdir( currdir )
 
     # Move demultiplexed fastq files to ShapeMapper folder
     old_fastq_names = [os.path.basename(args.read1fastq.name), os.path.basename(args.read2fastq.name)]
+
     for primer_tag in primer_tags:
         new_fastq_names = [ primer_tag+'_S1_L001_R1_001.fastq', primer_tag+'_S1_L001_R2_001.fastq' ]
-        # print new_fastq_names
         for (old_fastq_name,new_fastq_name) in zip(old_fastq_names,new_fastq_names):
-            os.system('mv 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+old_fastq_name+' 2_ShapeMapper/'+new_fastq_name)
-            print 'mv 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+old_fastq_name+' 2_ShapeMapper/'+new_fastq_name
+            #print '1_Demultiplex/'+barcode_sequences[primer_tag]+"/"+old_fastq_name
+            if os.path.isfile('1_Demultiplex/'+barcode_sequences[primer_tag]+"/"+new_fastq_name):
+                os.system('mv 1_Demultiplex/' + barcode_sequences[primer_tag] + '/' + new_fastq_name + ' 2_ShapeMapper/' + new_fastq_name)
+                print 'mv 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+new_fastq_name+' 2_ShapeMapper/'+new_fastq_name
+            else:
+                #print '2_ShapeMapper/'+ old_fastq_name
+                if os.path.isfile('2_ShapeMapper/'+ new_fastq_name):
+                    print '2_ShapeMapper/'+ new_fastq_name + " already exists don't need to move!"
+                else:
+                    raise IOError("cannot find " + '1_Demultiplex/'+barcode_sequences[primer_tag]+new_fastq_name)
 
     # Run ShapeMapper
     f_log.write( '\nStarting ShapeMapper analysis at: ' + timeStamp() )
@@ -115,16 +129,19 @@ if args.config is not None:
     os.system('cp ' + args.config.name + ' ' + currdir + '/2_ShapeMapper/' + args.name + '.cfg')
     os.chdir( currdir + '/2_ShapeMapper' )
     command_ShapeMapper = 'ShapeMapper.py ' + args.name + '.cfg'
+    #print command_ShapeMapper
+    #exit()
     f_log.write( '\nShapeMapper command: ' + command_ShapeMapper )
     os.system( command_ShapeMapper )
     f_log.write( '\nFinished ShapeMapper analysis at: ' + timeStamp() )
+
 
     # Generate simple files
     f_log.write( '\nGenerating simple files at: ' + timeStamp() )
     os.chdir( currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/' )
     for file in os.listdir(currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'):
         if file.endswith('.txt'):
-            os.system('muts_to_simple.py.py ' + file)
+            os.system(base_dir + '/muts_to_simple.py ' + file)
     f_log.write( '\nFinished generating simple files at: ' + timeStamp() )
 
     os.chdir( currdir )
@@ -140,7 +157,7 @@ if args.config is not None:
         print command2
         os.system( command1 )
         os.system( command2 )
-
+"""
 
 ######################## Generate RDAT of 2D data using simple_to_rdat.py ########################
 if args.config is not None:
@@ -162,7 +179,7 @@ if args.config is not None:
     os.chdir( currdir + '/3_MaP2D/simple_files')
     for file in os.listdir(currdir + '/3_MaP2D/simple_files'):
         if file.endswith('.simple'):
-            command_simple2rdat = 'simple_to_rdat.py ' + '../' + args.sequencefile.name + ' --simplefile ' + file + ' --name ' + args.name + ' --offset ' + str(args.offset) + ' --outprefix ' + file.split('.')[0]
+            command_simple2rdat = base_dir + '/simple_to_rdat.py ' + '../../' + args.sequencefile.name + ' --simplefile ' + file + ' --name ' + args.name + ' --offset ' + str(args.offset) + ' --outprefix ' + file.split('.')[0]
             # note: getting different .fa files for a single pair of FASTQs (multiple RNAs per sequencing run) is currently unsupported
             print command_simple2rdat
             f_log.write( '\nMaP2D command: ' + command_simple2rdat )
