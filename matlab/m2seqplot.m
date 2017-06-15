@@ -1,29 +1,42 @@
 function scalefactor = map2dplot( R, save_path, scalefactor, titl, secstr, fntsize, pdb, c2 )
-
-% For plotting 2D mutational profiling data:
+% map2dplot( R, save_path, scalefactor, titl, secstr, fntsize, pdb, c2 )
+%
+% For plotting 2D mutational profiling data (M2-seq):
 % Example command: map2dplot(rdat_var, '/path/to/filename', '', 'WK 10/2015 AMPure +DMS, <__ muts, ___ reads');
+%
+% REQUIRED input
+% R           = RDAT file or RDAT object  with M2-seq data.
+%
+% OPTIONAL inputs
+% save_path   = .eps file in which to save data (default: [], no output)
+% scalefactor = scaling of data (default: autoscaling based on 10/median)
+% title       = plot title (default: R.name )
+% secstr      = secondary structure to show as squares. Give 1 to use RDAT.structure, or specify in dot-bracket notation (default 0). 
+% fntsize     = font size in points (default: 15 )
+% pdb         = PDB file from which to estimate 15 and 30- Angstrom distance contours.
+% c2          = coloring for 3D contours (default: [.5 0 .5; 0.3 0.5 1],
+%                  i.e., purple, marine ] ); 
+%
+% For pdb contours, you'll need to install MAPseeker (available on github).
+%
+% (C) C. Y. Cheng and Das lab, 2015-2017
 
-if ~exist( 'fntsize', 'var' ) || isempty(fntsize); fntsize = 15; end
-if ~exist( 'c2','var' ) || isempty( c2 ); c2 = [.5 0 .5; 0.3 0.5 1]; end;
+if ~exist( 'fntsize', 'var' ) | isempty(fntsize); fntsize = 15; end
+if ~exist( 'c2','var' ) | isempty( c2 ); c2 = [.5 0 .5; 0.3 0.5 1]; end;
 
 if ischar( R );
     r = read_rdat_file( R );
-    reactivity = r.reactivity;
-    seqpos = r.seqpos;
-    if ~exist( 'scalefactor' , 'var' ) || isempty(scalefactor); scalefactor = 10/median(median(nonzeros(r.reactivity))); end
 else
     r = R;
-    reactivity = r.reactivity;
-    seqpos = r.seqpos;
-%     scalefactor = 10/median(median(r.reactivity))
-    if ~exist( 'scalefactor' , 'var' ) || isempty(scalefactor); scalefactor = 10/median(median(nonzeros(r.reactivity))); end
 end
 
+reactivity = r.reactivity;
+seqpos = r.seqpos;
+if ~exist( 'scalefactor' , 'var' ) | isempty(scalefactor); scalefactor = 10/median(median(nonzeros(r.reactivity))); end
 xrng = [seqpos(1)-1 seqpos];
 
 % scalefactor
 
-figure;
 set(gcf, 'PaperPositionMode', 'Manual','PaperOrientation', 'Portrait','PaperPosition', [-0.65 0.15 12 8]);%,'color','white','Position', [0 0 800 600]);
 image(seqpos,xrng,reactivity'*scalefactor); colormap(1-gray(100)); axis image;
 % image(1:size(reactivity,2),1:size(reactivity,1),reactivity*scalefactor); colormap(1-gray(100)); axis image;
@@ -37,38 +50,52 @@ tickpos = fliplr(maxpos:-20:minpos);
 count = 1;
 for i = tickpos;
     count = count + 1;
-    axlabel{count} = [r.sequence(i-r.offset), num2str(i)];
+    % the sequence characters are not useful and crowd the axis labels -- rhiju:
+    %axlabel{count} = [r.sequence(i-r.offset), num2str(i)]; 
+    axlabel{count} = [num2str(i)];
 end;
-set(gca,'xtick',tickpos, 'fontsize',fntsize, 'XTickLabel', axlabel(2:end) )
+set(gca,'xtick',tickpos, 'fontsize',fntsize, 'XTickLabel', axlabel(2:end),'xticklabelrotation',90 )
 set(gca,'ytick',[r.offset tickpos], 'fontsize',fntsize, 'YTickLabel', axlabel )
 set(gca,'TickDir','out');
-% xticklabel_rotate
 xlabel( 'Sequence Position','fontsize',fntsize+5,'fontweight','bold' );
 ylabel( 'Mutation Position','fontsize',fntsize+5,'fontweight','bold' );
 hold on;
 
 % Add title
-if exist( 'titl', 'var' );
-    title( titl, 'fonts', fntsize+5, 'fontw', 'bold','interp','none' );
-end
+if ~exist( 'titl', 'var' ) | isempty( titl ); titl = r.name; end;
+title( titl, 'fontsize', fntsize+5, 'fontw', 'bold','interp','none' );
 
 % Overlay secondary structure
-if exist( 'secstr', 'var' ) && ~isempty( secstr );
-    seq = secstr{1};
-    str = secstr{2};
-    offset = secstr{3};
-    for i = 1:length(secstr{1})
-        data_types{i} = num2str(i);
+if exist( 'secstr', 'var' ) & ~isempty( secstr );
+    if ( secstr == 1 ) secstr = r.structure; end;
+    if ischar( secstr )
+        % show base pairs as red squares
+        hold on;
+        bps = convert_structure_to_bps( secstr );
+        for i = 1:size( bps, 1 );
+            rectangle( 'position', [r.seqpos(bps(i,1))-0.5, r.seqpos(bps(i,2))-0.5, 1, 1], 'edgecolor','r' )
+            rectangle( 'position', [r.seqpos(bps(i,2))-0.5, r.seqpos(bps(i,1))-0.5, 1, 1], 'edgecolor','r' )
+        end
+        hold off;
+    else
+        % is this in use? -- rhiju, 2017
+        seq = secstr{1};
+        str = secstr{2};
+        offset = secstr{3};
+        for i = 1:length(secstr{1})
+            data_types{i} = num2str(i);
+        end
+        area_pred = generate_area_pred(seq, str, 0, data_types, length(secstr{1}));
+        % in future, use sequence and secstruct from rdat and crop to correct size
+        [x_pred, y_pred] = find(area_pred);
+        x_pred = x_pred + offset;
+        y_pred = y_pred + offset;
+        plot(x_pred, y_pred, 'o', 'color', [1 0 1]); hold on;
     end
-    area_pred = generate_area_pred(seq, str, 0, data_types, length(secstr{1}));
-    % in future, use sequence and secstruct from rdat and crop to correct size
-    [x_pred, y_pred] = find(area_pred);
-    x_pred = x_pred + offset;
-    y_pred = y_pred + offset;
-    plot(x_pred, y_pred, 'o', 'color', [1 0 1]); hold on;
 end
 
 % Overlay tertiary structure contours
+% Is this in use? Rhiju -- 2017
 if exist( 'pdb', 'var' ) && ~isempty( pdb )
     pdbvar = pdb{1}; contours = pdb{2};
     ligpos = xrng;
@@ -124,3 +151,6 @@ if exist( 'save_path', 'var' ) && ~isempty( save_path );
     fprintf( ['Created: ', save_path, '\n'] );
     hgsave( save_path );
 end;
+
+hold off;
+set(gcf, 'PaperPositionMode','auto','color','white');

@@ -23,7 +23,7 @@ import sys
 import string
 import re
 from itertools import izip_longest
-from rdatkit.datahandlers import RDATFile
+from rdatkit.handler import RDATFile
 from matplotlib.pylab import *
 
 parser = argparse.ArgumentParser( description='Generates a 2D correlated mutational profiling dataset using demultiplexed Read1 and Read 2 files, aligned Read1 and Read2 text files, or a .simple file')
@@ -46,13 +46,13 @@ names = []
 for seqfile in args.sequencefile:
     seqfile_lines = seqfile.readlines()
     seqs.append( seqfile_lines[1].strip().upper().replace("U","T") )
-    names.append( seqfile_lines[0].strip()[2:] )
+    names.append( seqfile_lines[0].strip()[1:] )
     print names[i]
     print seqs[i]
     i += 1
 
 
-def output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata, WTdata_err, data2d, data2d_err, f_log ):
+def output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata, WTdata_err, data2d, data2d_err, f_log, fltnm, mutnm ):
         # Output data and annotations to RDAT file
         construct = name
         sequence_RNA = string.replace(sequence,'T','U')
@@ -60,18 +60,19 @@ def output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata, WT
         offset = args.offset
         version = 0.34
         comments = 'Created from %s using simple_to_rdat.py\n' % (args.simplefile.name)
-                
+
         annotations = {'experimentType:MutationalProfiling'}
         data_annotations = []
-        data_annotations.append({'mutation':'WT'})
+        data_annotations.append({'mutation':'WT','reads':str(fltnm)})
         if len(row_indices)> 0:
             for idx, row_idx in enumerate(row_indices):
                 position = seqpos[row_idx] - offset
-                data_annotations.append({'mutation':[string.replace(sequence[position-1],'T','U') + str(position + offset) + 'X']})
+                data_annotations.append({'mutation':[string.replace(sequence[position-1],'T','U') + str(position + offset) + 'X'],
+                                         'reads':str( mutnm[row_idx])})
         data = np.concatenate([WTdata, data2d], axis=0)                        # combine WT data and 2D data
 
         r = RDATFile()
-        r.save_a_construct(construct, data, sequence_RNA, structure, offset, annotations, data_annotations, filename, comments, version)
+        r.save_construct(construct, data, sequence_RNA, structure, offset, annotations, data_annotations, filename, comments, version, seqpos)
         # Note: Should include # of simple file lines, filters used, and # mutants passing filters in RDAT file
         #       and edit read_rdat_file.m in HiTRACE to read these figures; will streamline plotting
 
@@ -83,11 +84,11 @@ def output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata, WT
 def simple_to_rdat( args, sequence, name ):
         print 'Starting analysis from simple file at ' + time.strftime('%Y/%m/%d %H:%M:%S')
         f_log.write( 'Starting analysis from simple file at ' + time.strftime('%Y/%m/%d %H:%M:%S') + '\n\n' )
-        
+
         #### Get length and seqpos
         WTlen = len(sequence)
-        seqpos = arange(1, WTlen+1) + args.offset
-        
+        seqpos = arange( 1, WTlen+1 ) + args.offset
+
         #### Get mutation indices from simple data
         print 'Reading file: '+str(args.simplefile.name)
 
@@ -140,7 +141,7 @@ def simple_to_rdat( args, sequence, name ):
                         usenm += 1
                     for mutpos in mut_idx:
                         data2d[mutpos, mut_idx] += 1                # Build 2D dataset
-                    fltnm += 1                                      # count sequences that pass filters 
+                    fltnm += 1                                      # count sequences that pass filters
             # Record reactivity associated with reverse transcriptase stopping (probably should look at a 2D version of this, like in MOHCA-seq. -- rhiju)
             assert ( start_pos_to_use  <= (WTlen + 1) )
             if ( start_pos_to_use > WTlen ): continue
@@ -173,7 +174,7 @@ def simple_to_rdat( args, sequence, name ):
         if fltnm == 0:
             f_log.write( '\nNo sequences passing both full-length and quality filters! Setting normalization factor for "modification fraction" to 1\n' )
             fltnm = 1
-        
+
         #### Get reactivity for WT data
         # normalizes to total number of reads -- should be a true 'modification fraction'
         WTdata_reactivity       = WTdata/fltnm
@@ -187,21 +188,24 @@ def simple_to_rdat( args, sequence, name ):
         data2d_err              = np.sqrt(data2d)    # estimate error for each 2D position as square root of number of reads with 2D signal at that position
         data2d_reactivity_err   = 0 * data2d_err
         # data2d_norm             = 0 * data2d
+
+        mutnm = np.zeros((WTlen)).astype(int)  # track normalization factors (total reads) that contribute to each profile
         for row_idx in xrange(data2d.shape[0]):
             if data2d[row_idx,:].sum() > 0*data2d.shape[1]:
                 # normalizes to total number of reads with modification at row_idx position -- should be a true 'modification fraction'
                 data2d_reactivity[row_idx, :]       = data2d[row_idx,:]     / data2d[ row_idx, row_idx ]      # [row_idx, row_idx] contains total reads with mod at row_idx position
                 data2d_reactivity_err[row_idx, :]   = data2d_err[row_idx,:] / data2d[ row_idx, row_idx ]      # normalize errors by same scale factor as reactivities
+                mutnm[ row_idx ] = int( data2d[ row_idx, row_idx ] )
             row_indices.append(row_idx)
 
         #### Output RDATs
         # reactivity RDAT (normalize by total reads with a mutation at row_idx)
-        filename = currdir + '/' + args.outprefix + '_' + name +  '.reactivity.rdat'
-        output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata_reactivity, WTdata_reactivity_err, data2d_reactivity, data2d_reactivity_err, f_log )
+        filename = currdir + '/' + args.outprefix + '.reactivity.rdat'
+        output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata_reactivity, WTdata_reactivity_err, data2d_reactivity, data2d_reactivity_err, f_log, fltnm, mutnm )
 
         # raw RDAT (# reads not normalized; can subsequently normalize by e.g. total reads per barcode, total aligned reads, total reads with >=1 mutation)
         filename = currdir + '/' + args.outprefix + '_' + name +  '.raw.rdat'
-        output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata, WTdata_err, data2d, data2d_err, f_log )
+        output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata, WTdata_err, data2d, data2d_err, f_log, fltnm, mutnm )
 
         f_log.write( '\nFinished analysis from simple file at ' + time.strftime('%Y/%m/%d %H:%M:%S') + '\n\n' )
 
