@@ -37,20 +37,21 @@ end
 clf
 subplot( 2, 2, 1 );
 m2seqplot( r );
-subplot( 2, 2, 2 );
-output_varna( '/tmp/temp.png', r.sequence, r.structure,[],[],r.offset,[],[],SHAPE_normalize(r.reactivity(:,1)) );
-imshow( imread( '/tmp/temp.png' ) );
 
 subplot( 2, 2, 3);
 Z = output_Zscore_from_rdat( [], r, r_nomod, [], 1, 1 );
-rZ = get_Zscore_rdat( r, Z );
-scalefactor = [];
-m2seqplot( rZ, [], scalefactor );
+%rZ = get_Zscore_rdat( r, Z );
+%scalefactor = [];
+%m2seqplot( rZ, [], scalefactor );
 
-subplot( 2, 2, 4);
+subplot( 2, 2, 3);
+
+% old cluster analysis from Kladwang, Nature Chemistry 2012
 %print_mode = 0;
 %cluster_z_scores( Z, r.structure, r.offset, print_mode );
-m2net( Z, r );
+[Zfinal, structure] = m2net( Z, r );
+
+show_recovered_helices( r.structure, structure, r.offset, r.sequence, Z, {}, {[2, 2, 4], [2, 2, 2]} );
 
 subplot(2,2,1);
 title( summary_title );
