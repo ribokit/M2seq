@@ -184,14 +184,8 @@ elseif DIFF == 1;
     end
 end
 
-function cmap = redblue( N );
-cmap = ones( N, 3 );
-n = (N-1)/2;
-cmap( 1:n, 1) = [1:n]/n;; % blue
-cmap( 1:n, 2) = [1:n]/n;; % blue
-cmap( (n+1) + [1:n], 2) = [n:-1:1]/n; % red
-cmap( (n+1) + [1:n], 3) = [n:-1:1]/n; % red
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [ind] = find_idx(sequence, offset, seqpos)
 seq = sequence;
 ind = {};
@@ -208,6 +202,7 @@ for i = 1:length(ind);
 end
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [mut_avg, mut_max] = mut_matrix(muts, ind)
 % take average across mutation type (along row) over all native positions for each starting nucleotide (A, U, G, C)
 mut_avg = zeros(4,5);
@@ -279,3 +274,70 @@ for i = 1:length( csv_names )
         clf; 
     end;
 end
+
+
+function c = redblue(m)
+%REDBLUE    Shades of red and blue color map
+%   REDBLUE(M), is an M-by-3 matrix that defines a colormap.
+%   The colors begin with bright blue, range through shades of
+%   blue to white, and then through shades of red to bright red.
+%   REDBLUE, by itself, is the same length as the current figure's
+%   colormap. If no figure exists, MATLAB creates one.
+%
+%   For example, to reset the colormap of the current figure:
+%
+%             colormap(redblue)
+%
+%   See also HSV, GRAY, HOT, BONE, COPPER, PINK, FLAG, 
+%   COLORMAP, RGBPLOT.
+
+%   Adam Auton, 9th October 2009
+% Copyright (c) 2009, Adam Auton 
+% All rights reserved.
+% 
+% Redistribution and use in source and binary forms, with or without 
+% modification, are permitted provided that the following conditions are 
+% met:
+% 
+% * Redistributions of source code must retain the above copyright 
+% notice, this list of conditions and the following disclaimer. 
+% * Redistributions in binary form must reproduce the above copyright 
+% notice, this list of conditions and the following disclaimer in 
+% the documentation and/or other materials provided with the distribution
+% 
+% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
+% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE 
+% LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
+% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
+% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
+% INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN 
+% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
+% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
+% POSSIBILITY OF SUCH DAMAGE.
+
+if nargin < 1, m = size(get(gcf,'colormap'),1); end
+
+if (mod(m,2) == 0)
+    % From [0 0 1] to [1 1 1], then [1 1 1] to [1 0 0];
+    m1 = m*0.5;
+    r = (0:m1-1)'/max(m1-1,1);
+    g = r;
+    r = [r; ones(m1,1)];
+    g = [g; flipud(g)];
+    b = flipud(r);
+else
+    % From [0 0 1] to [1 1 1] to [1 0 0];
+    m1 = floor(m*0.5);
+    r = (0:m1-1)'/max(m1,1);
+    g = r;
+    r = [r; ones(m1+1,1)];
+    g = [g; 1; flipud(g)];
+    b = flipud(r);
+end
+
+c = [r g b]; 
+
+
+
