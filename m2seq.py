@@ -12,33 +12,37 @@
 #       Use ShapeMapper for read alignment to reference sequence and generation of mutation strings
 # 3. Calculates 2D datasets and outputs RDAT files using simple_to_rdat.py
 #
-# Clarence Cheng, 2015-2016
-#
+# (C) Clarence Cheng, 2015-2016
+# (C) Joseph Yesselman, Rhiju Das, 2017
 
 import os, sys, time
+import shutil
 import argparse
+import glob
 
-parser = argparse.ArgumentParser()
 
-parser.add_argument('sequencefile', type=argparse.FileType('r'))
-parser.add_argument('barcodes', type=argparse.FileType('r'))
-parser.add_argument('read1fastq', type=argparse.FileType('r'))
-parser.add_argument('read2fastq', type=argparse.FileType('r'))
-parser.add_argument('--config', type=argparse.FileType('r'))
-parser.add_argument('--name', type=str, default='PLACEHOLDER')
-parser.add_argument('--offset', type=int, default=0)
-parser.add_argument('--outprefix', type=str, default='out')
+def parse_commandline_args():
+    parser = argparse.ArgumentParser()
 
-args = parser.parse_args()
+    parser.add_argument('sequencefile', type=argparse.FileType('r'))
+    parser.add_argument('barcodes', type=argparse.FileType('r'))
+    parser.add_argument('read1fastq', type=argparse.FileType('r'))
+    parser.add_argument('read2fastq', type=argparse.FileType('r'))
+    parser.add_argument('--config', type=argparse.FileType('r'))
+    parser.add_argument('--name', type=str, default='PLACEHOLDER')
+    parser.add_argument('--offset', type=int, default=0)
+    parser.add_argument('--outprefix', type=str, default='out')
+    parser.add_argument('--force_demultiplex', action='store_true')
 
-sequencefile_lines = args.sequencefile.readlines()
-sequence = sequencefile_lines[1].strip().upper()
+    parser.add_argument('--only_demultiplex', type=bool)
 
-if args.name == 'PLACEHOLDER':
-    args.name = sequencefile_lines[0].strip()[1:]
-    print args.name
+    args = parser.parse_args()
+    if args.name == 'PLACEHOLDER':
+        seq_file = args.sequencefile.name.split("/")[-1]
+        name = seq_file.split(".")[0]
+        args.name = name
 
-currdir = os.getcwd()
+    return args
 
 
 def timeStamp():
@@ -59,118 +63,202 @@ def make_dir(path):
             raise
 
 
-######################## Demultiplex using Novobarcode ########################
+def get_sequence(sequencefile):
+    sequencefile_lines = sequencefile.readlines()
+
+    sequence = sequencefile_lines[1].strip().upper()
+    # check for Us
+    for e in sequence:
+        if e == 'U':
+            raise ValueError("your sequence in " + sequencefile + " has Us not Ts please fix!" )
+
+    return sequence
+
+
+def get_barcode_sequences(args, f_log):
+    print 'Reading barcodes from: ' + args.barcodes.name
+    f_log.write('Primers:\n')
+    lines = open(args.barcodes.name).readlines()
+    primer_tags = []
+    barcodes= {}
+    print 'Current barcodes found:'
+    for line in lines:
+        if len(line) < 2: continue
+        col = line.rstrip('\n')
+        cols = col.split('\t')
+        if len(cols) != 2: continue
+        if len(cols[1]) < 2: continue
+        primer_tags.append(cols[0])
+        barcodes[cols[0]] = cols[1]
+        f_log.write(line)
+        print cols[0] + '\t' + cols[1]
+
+    return barcodes
+
+
+def demultiplex_fastq_files(args, f_log):
+    f_log.write('Starting Novobarcode demultiplexing at: ' + timeStamp())
+    print 'Starting Novobarcode demultiplexing'
+    os.system(
+        'novobarcode -b ' + args.barcodes.name + ' -f ' + args.read1fastq.name + ' ' + args.read2fastq.name +  \
+        ' -d 1_Demultiplex > 1_Demultiplex/novobarcode_log_Distance4.txt')
+    f_log.write('\nFinished demultiplexing at: ' + timeStamp() + '\n')
+
+
+def valid_demultiplex_output(args, barcodes):
+    read1fastq_name = args.read1fastq.name.split("/")[-1]
+    read2fastq_name = args.read2fastq.name.split("/")[-1]
+    for name, seq in barcodes.iteritems():
+        fname_1 = '1_Demultiplex/' + seq + '/' + read1fastq_name
+        fname_2 = '1_Demultiplex/' + seq + '/' + read2fastq_name
+        if not os.path.isfile(fname_1) or not os.path.isfile(fname_2):
+            return 0
+    return 1
+
+
+def create_sym_link_to_demultiplex_files(args, barcodes):
+    read1fastq_name = args.read1fastq.name.split("/")[-1]
+    read2fastq_name = args.read2fastq.name.split("/")[-1]
+    for tag, seq in barcodes.iteritems():
+        fname_1 = '1_Demultiplex/' + seq + '/' + read1fastq_name
+        fname_2 = '1_Demultiplex/' + seq + '/' + read2fastq_name
+        new_fastq_names = ['2_ShapeMapper/' + tag + '_S1_L001_R1_001.fastq',
+                           '2_ShapeMapper/' + tag + '_S1_L001_R2_001.fastq']
+        os.system('ln -s ' + os.path.abspath(fname_1) + " " + os.path.abspath(new_fastq_names[0]))
+        os.system('ln -s ' + os.path.abspath(fname_2) + " " + os.path.abspath(new_fastq_names[1]))
+
+
+def run_shapemapper(args):
+    print "copying required files for ShapeMapper into 2_ShapeMapper"
+    shutil.copy(args.sequencefile.name, '2_ShapeMapper/' + args.sequencefile.name)
+    shutil.copy(args.config.name, '2_ShapeMapper/' + args.config.name)
+    os.chdir('2_ShapeMapper')
+    print 'Starting ShapeMapper analysis'
+    os.system("ShapeMapper.py " +  args.config.name)
+
+    f_log.write('\nGenerating simple files at: ' + timeStamp())
+    outdir = currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'
+    for file in os.listdir(outdir):
+        if file.endswith('.txt'):
+            muts_to_simple( outdir + file )
+    f_log.write('\nFinished generating simple files at: ' + timeStamp())
+
+    os.chdir("..")
+
+def valid_shapemapper_output(args):
+    pass
+
+def muts_to_simple(mutsfile):
+    simplename = mutsfile + '.simple'
+    f_simple = open(simplename, 'w')
+
+    start_pos = []
+    count = 0
+    f = open(mutsfile)
+    lines = f.readlines()
+    f.close()
+
+    for line in lines:
+        fields = line.strip().split('\t')
+        if len(fields) < 3: continue
+
+        start_pos = int(fields[0])
+        end_pos = int(fields[1])
+        mut_string = fields[2]
+        assert (len(mut_string) == (int(fields[1]) - int(fields[0]) + 1))
+
+        count += 1  # record total sequences
+        if count % 50000 == 0: print 'Reading line number ', count
+
+        # ignore non-overlapping reads
+        temp = mut_string.strip('s~')
+        non_overlap = 0
+        for i in xrange(len(temp)):
+            if temp[i] == 's' or temp[i] == '~':
+                if temp[i + 1] == '|':
+                    non_overlap = 1
+                    break
+
+        # adjust start and end positions
+        if non_overlap == 0:
+            for i in xrange(len(mut_string)):
+                if mut_string[i] == 's' or mut_string[i] == '~':
+                    start_pos += 1
+                else:
+                    break
+
+            for i in reversed(xrange(len(mut_string))):
+                if mut_string[i] == 's' or mut_string[i] == '~':
+                    end_pos -= 1
+                else:
+                    break
+
+            simple_line = mut_string.strip('s~').replace('|', '0').replace('~', '0').replace('A', '1').replace('T','1').replace('G', '1').replace('C', '1').replace('-', '1')
+
+            f_simple.write(str(start_pos) + '\t' + str(end_pos) + '\t' + simple_line + '\n')
+
+    print '\nSimple file created: ' + f_simple.name
+    print '\nTotal number of sequences: ' + str(count)
+
+    f_simple.flush()
+    f_simple.close()
+
+
+def m2_seq_final_analysis(args, f_log):
+    print 'Starting M2seq analysis'
+    f_log.write('\nStarting M2seq analysis at: ' + timeStamp() + '\n')
+
+    print os.getcwd()
+    simple_files = glob.glob('2_ShapeMapper/output/mutation_strings_oldstyle/*.simple')
+    print simple_files
+    for sf in simple_files:
+        print sf
+        f_name = sf.split("/")[-1]
+        os.system('ln -s ' + os.path.abspath(sf) + " " + '3_M2seq/simple_files/' + f_name)
+
+    os.chdir(currdir + '/3_M2seq/simple_files')
+    simple_files = glob.glob('*.simple')
+    for sf in simple_files:
+        f_name = sf.split('.')[0]
+        os.system(base_dir + "/simple_to_rdat.py ../../" + args.sequencefile.name + " --simplefile " + sf + " --name " +
+                  args.name + " --offset " + str(args.offset) + " --outprefix " + f_name)
+    os.chdir(currdir)
+
+
+currdir = os.getcwd()
 f_log = open(currdir + '/' + 'AnalysisLog.txt', 'w')
 
-make_dir( currdir + '/1_Demultiplex' )
-if not os.path.exists( '1_Demultiplex/novobarcode_log_Distance4.txt' ):
-    f_log.write( 'Starting Novobarcode demultiplexing at: ' + timeStamp() )
-    print 'Starting Novobarcode demultiplexing'
-    os.system('novobarcode -b ' + args.barcodes.name + ' -f ' + args.read1fastq.name + ' ' + args.read2fastq.name + ' -d 1_Demultiplex > 1_Demultiplex/novobarcode_log_Distance4.txt')
-    f_log.write( '\nFinished demultiplexing at: ' + timeStamp() + '\n')
+# make directories now
+make_dir(currdir + '/1_Demultiplex')
+make_dir(currdir + '/2_ShapeMapper')
+make_dir(currdir + '/3_M2seq')
+make_dir(currdir + '/3_M2seq/simple_files')
 
-print 'Reading barcodes from: '+args.barcodes.name
-f_log.write( 'Primers:\n' )
-lines = open( args.barcodes.name ).readlines()
-primer_tags = []
-barcode_sequences = {}
-for line in lines:
-    if len( line ) < 2: continue
-    col = line.rstrip( '\n' )
-    cols = col.split( '\t' )
-    if len( cols ) != 2: continue
-    if len( cols[1] ) < 2: continue
-    primer_tags.append( cols[0] )
-    barcode_sequences[ cols[0] ] = cols[1]
-    f_log.write( line )
-    print cols[0]+'\t'+cols[1]
+# TODO move this into settings.py
+file_path = os.path.realpath(__file__)
+spl = file_path.split("/")
+base_dir = "/".join(spl[:-1])
 
+args = parse_commandline_args()
 
-######################## Analyze using ShapeMapper.py ########################
-# NOTE: .cfg config file input to ShapeMapper should have the following settings:
-#  Under trimReads options, minPhred = 0
-#  Under countMutations options, minPhredtoCount = 20
-#  Under countMutations options, makeOldMutationStrings = on (write mutation strings in format that can be converted to binary .simple files)
+sequence = get_sequence(args.sequencefile)
+barcodes = get_barcode_sequences(args, f_log)
 
-if args.config is not None:
-    make_dir( currdir + '/2_ShapeMapper' )
+# should we demultiplex?
+if not valid_demultiplex_output(args, barcodes) or args.force_demultiplex:
+    demultiplex_fastq_files(args, f_log)
+    # create links instead of actually moving files, much cleaner
+    create_sym_link_to_demultiplex_files(args, barcodes)
+else:
+    print "not demultiplexing it's done already, use --force_demultiplex to redo it"
 
-    os.chdir( currdir )
+# run shaper mapper
+run_shapemapper(args)
 
-    # Move demultiplexed fastq files to ShapeMapper folder
-    old_fastq_names = [os.path.basename(args.read1fastq.name), os.path.basename(args.read2fastq.name)]
-    for primer_tag in primer_tags:
-        new_fastq_names = [ primer_tag+'_S1_L001_R1_001.fastq', primer_tag+'_S1_L001_R2_001.fastq' ]
-        # print new_fastq_names
-        for (old_fastq_name,new_fastq_name) in zip(old_fastq_names,new_fastq_names):
-            os.system('mv 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+old_fastq_name+' 2_ShapeMapper/'+new_fastq_name)
-            print 'mv 1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+old_fastq_name+' 2_ShapeMapper/'+new_fastq_name
-
-    # Run ShapeMapper
-    f_log.write( '\nStarting ShapeMapper analysis at: ' + timeStamp() )
-    print 'Starting ShapeMapper analysis'
-    print 'cp ' + args.sequencefile.name + ' "' + currdir + '"/2_ShapeMapper/' + args.name + '.fa'
-    print 'cp ' + args.config.name + ' "' + currdir + '"/2_ShapeMapper/' + args.name + '.cfg'
-    os.system('cp ' + args.sequencefile.name + ' "' + currdir + '"/2_ShapeMapper/' + args.name + '.fa')
-    os.system('cp ' + args.config.name + ' "' + currdir + '"/2_ShapeMapper/' + args.name + '.cfg')
-    os.chdir( currdir + '/2_ShapeMapper' )
-    command_ShapeMapper = 'ShapeMapper.py ' + args.name + '.cfg'
-    f_log.write( '\nShapeMapper command: ' + command_ShapeMapper )
-    os.system( command_ShapeMapper )
-    f_log.write( '\nFinished ShapeMapper analysis at: ' + timeStamp() )
-
-    # Generate simple files
-    f_log.write( '\nGenerating simple files at: ' + timeStamp() )
-    os.chdir( currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/' )
-    for file in os.listdir(currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'):
-        if file.endswith('.txt'):
-            os.system('muts_to_simple.py ' + file)
-    f_log.write( '\nFinished generating simple files at: ' + timeStamp() )
-
-    os.chdir( currdir )
-
-    # Move demultiplexed fastq files back to Demultiplex folder
-    for primer_tag in primer_tags:
-        new_fastq_names = [ primer_tag+'_S1_L001_R1_001.fastq', primer_tag+'_S1_L001_R2_001.fastq' ]
-        new_fastq_names_a = [ '1_Demultiplex/'+barcode_sequences[primer_tag]+'/'+name for name in new_fastq_names]
-        new_fastq_names_b = [ '2_ShapeMapper/'+name for name in new_fastq_names]
-        command1 = 'mv '+new_fastq_names_b[0]+' '+new_fastq_names_a[0]
-        command2 = 'mv '+new_fastq_names_b[1]+' '+new_fastq_names_a[1]
-        print command1
-        print command2
-        os.system( command1 )
-        os.system( command2 )
-
-
-######################## Generate RDAT of 2D data using simple_to_rdat.py ########################
-if args.config is not None:
-    make_dir( currdir + '/3_M2seq' )
-    make_dir( currdir + '/3_M2seq/simple_files')
-    os.chdir( currdir )
-
-    print 'Starting M2seq analysis'
-    f_log.write( '\nStarting M2seq analysis at: ' + timeStamp() + '\n' )
-
-    # Move simple format files and counted mutations to M2seq folder
-    # os.chdir( currdir )
-    for file in os.listdir(currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'):
-        if file.endswith('.simple'):
-            os.system('mv "' + currdir + '"/2_ShapeMapper/output/mutation_strings_oldstyle/' + file + ' "' + currdir + '"/3_M2seq/simple_files/')
-
-    # Run simple_to_rdat.py
-    os.system('cp ' + args.sequencefile.name + ' "' + currdir + '"/3_M2seq/' + args.name + '.fa')
-    os.chdir( currdir + '/3_M2seq/simple_files')
-    for file in os.listdir(currdir + '/3_M2seq/simple_files'):
-        if file.endswith('.simple'):
-            command_simple2rdat = 'simple_to_rdat.py ' + '../' + args.sequencefile.name + ' --simplefile ' + file + ' --name ' + args.name + ' --offset ' + str(args.offset) + ' --outprefix ' + file.split('.')[0]
-            # note: getting different .fa files for a single pair of FASTQs (multiple RNAs per sequencing run) is currently unsupported
-            print command_simple2rdat
-            f_log.write( '\nM2seq command: ' + command_simple2rdat )
-            os.system( command_simple2rdat )
-
-    f_log.write( '\nFinished M2seq analysis at: ' + timeStamp() + '\n' )
-
-os.chdir( currdir )
+# run m2seq analysis
+m2_seq_final_analysis(args, f_log)
 
 f_log.close()
+
+
 
