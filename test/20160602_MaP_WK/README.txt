@@ -9,8 +9,10 @@ mv test test_master
 
 # then rerun after checking out your favorite branch.
 cp -rf example_files/ test/
-git checkout <<my new branch>>
+git checkout MY_TEST_BRANCH
 cd test/
 source README
 cd ../
-diff -r test_master/ test/
+
+diff -x "*sam" test_master/ test/ 
+
