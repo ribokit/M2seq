@@ -12,8 +12,8 @@
 #       Use ShapeMapper for read alignment to reference sequence and generation of mutation strings
 # 3. Calculates 2D datasets and outputs RDAT files using simple_to_rdat.py
 #
-# Clarence Cheng, 2015-2016
-#
+# (C) Clarence Cheng, 2015-2016
+# (C) Joseph Yesselman, Rhiju Das, 2017
 
 import os, sys, time
 import shutil
@@ -137,18 +137,16 @@ def run_shapemapper(args):
     os.system("ShapeMapper.py " +  args.config.name)
 
     f_log.write('\nGenerating simple files at: ' + timeStamp())
-    os.chdir(currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/')
-    for file in os.listdir(currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'):
+    outdir = currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'
+    for file in os.listdir(outdir):
         if file.endswith('.txt'):
-            os.system('muts_to_simple.py ' + file)
+            muts_to_simple( outdir + file )
     f_log.write('\nFinished generating simple files at: ' + timeStamp())
 
     os.chdir("..")
 
-
 def valid_shapemapper_output(args):
     pass
-
 
 def muts_to_simple(mutsfile):
     simplename = mutsfile + '.simple'
@@ -212,6 +210,7 @@ def m2_seq_final_analysis(args, f_log):
 
     print os.getcwd()
     simple_files = glob.glob('2_ShapeMapper/output/mutation_strings_oldstyle/*.simple')
+    print simple_files
     for sf in simple_files:
         print sf
         f_name = sf.split("/")[-1]
@@ -254,18 +253,7 @@ else:
     print "not demultiplexing it's done already, use --force_demultiplex to redo it"
 
 # run shaper mapper
- run_shapemapper(args)
-
-os.chdir('2_ShapeMapper')
-f_log.write('\nGenerating simple files at: ' + timeStamp())
-os.chdir(currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/')
-for file in os.listdir(currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'):
-    if file.endswith('.txt'):
-        muts_to_simple(file)
-f_log.write('\nFinished generating simple files at: ' + timeStamp())
-
-os.chdir(currdir)
-
+run_shapemapper(args)
 
 # run m2seq analysis
 m2_seq_final_analysis(args, f_log)
