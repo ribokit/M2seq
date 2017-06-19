@@ -1,0 +1,7 @@
+# move and gunzip raw data.
+# rsync ../Ann_Map_P4P6noHP_PAN_06-02-2016-30879900/Sample1-36594741/Data/Intensities/BaseCalls/Sample1_S1_L001_R1_001.fastq.gz ~/Desktop
+# rsync ../Ann_Map_P4P6noHP_PAN_06-02-2016-3087#9900/Sample1-36594741/Data/Intensities/BaseCalls/Sample1_S1_L001_R2_001.fastq.gz ~/Desktop
+# gunzip ~/Desktop/*gz
+
+# FOR TESTING:
+m2seq.py P4P6noHP.fa RTBbarcodes.fa Sample1_S1_L001_R1_001.fastq Sample1_S1_L001_R2_001.fastq  --config MaP_20160602.cfg --offset 89

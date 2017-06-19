@@ -1,0 +1,66 @@
+Pipeline started in /Users/rhiju/Dropbox/ProjectsShared/MaP2D_exp_Ann_data/20160602_MaP_WK/rhiju_reanalysis2017/test/2_ShapeMapper at 16:26:14, 6/19
+
+Starting config file parsing at at 16:26:14, 6/19
+Config file successfully parsed at at 16:26:14, 6/19
+
+Starting reference index building at at 16:26:14, 6/19
+P4P6noHP bowtie index built successfully at 16:26:16, 6/19.
+
+Starting read quality filtering at at 16:26:16, 6/19
+RTB008_S1_L001_R2_001.fastq quality filtered successfully.
+RTB008_S1_L001_R1_001.fastq quality filtered successfully.
+RTB009_S1_L001_R1_001.fastq quality filtered successfully.
+RTB009_S1_L001_R2_001.fastq quality filtered successfully.
+
+Starting sequence alignment at at 16:26:21, 6/19
+Sample RTB008 aligned successfully.
+Sample RTB008 alignment stats:
+    487 reads; of these:
+    487 (100.00%) were paired; of these:
+    29 (5.95%) aligned concordantly 0 times
+    443 (90.97%) aligned concordantly exactly 1 time
+    15 (3.08%) aligned concordantly >1 times
+    ----
+    29 pairs aligned concordantly 0 times; of these:
+    4 (13.79%) aligned discordantly 1 time
+    ----
+    25 pairs aligned 0 times concordantly or discordantly; of these:
+    50 mates make up the pairs; of these:
+    35 (70.00%) aligned 0 times
+    14 (28.00%) aligned exactly 1 time
+    1 (2.00%) aligned >1 times
+    96.41% overall alignment rate
+Sample RTB009 aligned successfully.
+Sample RTB009 alignment stats:
+    329 reads; of these:
+    329 (100.00%) were paired; of these:
+    12 (3.65%) aligned concordantly 0 times
+    306 (93.01%) aligned concordantly exactly 1 time
+    11 (3.34%) aligned concordantly >1 times
+    ----
+    12 pairs aligned concordantly 0 times; of these:
+    0 (0.00%) aligned discordantly 1 time
+    ----
+    12 pairs aligned 0 times concordantly or discordantly; of these:
+    24 mates make up the pairs; of these:
+    14 (58.33%) aligned 0 times
+    10 (41.67%) aligned exactly 1 time
+    0 (0.00%) aligned >1 times
+    97.87% overall alignment rate
+
+Starting alignment parsing at at 16:26:25, 6/19
+Sample RTB008 alignment parsed successfully.
+Sample RTB009 alignment parsed successfully.
+
+Starting mutation counting at at 16:26:28, 6/19
+File RTB008_P4P6noHP.txt mutations counted successfully.
+File RTB009_P4P6noHP.txt mutations counted successfully.
+
+Starting making old-style mutation strings at at 16:26:31, 6/19
+File RTB008_P4P6noHP.txt made old mutation strings successfully.
+File RTB009_P4P6noHP.txt made old mutation strings successfully.
+
+Copying counted mutation csv's rows to columns at at 16:26:34, 6/19
+
+Starting reactivity profile creation at at 16:26:34, 6/19
+Pipeline completed at 16:26:34, 6/19.
