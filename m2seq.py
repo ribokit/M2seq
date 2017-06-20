@@ -21,6 +21,49 @@ import argparse
 import glob
 
 
+# https://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
+def which(program):
+    import os
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            path = path.strip('"')
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None
+
+
+def check_required_programs():
+    print "checking required external programs"
+    if which('novobarcode') is None:
+        raise ValueError("novobarcode program is not installed but required!, "
+                         "please install at: http://www.novocraft.com/support/download/")
+    else:
+        print "novobarcode is detected ..."
+
+
+    if which("ShapeMapper.py") is None:
+        raise ValueError("ShapeMapper 1.2 is required, software developed by the Weeks lab at UNC Chapel Hill for 1D "
+                         "analysis ofmutational profiling data. Available at http://www.chem.unc.edu/rna/software.html "
+                         "(Make sure you go into that directory and run make.)")
+    else:
+        print "ShapeMapper is detected ..."
+
+
+    if which("bowtie2") is None:
+        raise ValueError("BowTie2 is needed for ShapeMapper. Available here:"
+                         " https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.2.9/. Version 2.2.9 works.")
+    else:
+        print "BowTie2 is detected ..."
+
 def parse_commandline_args():
     parser = argparse.ArgumentParser()
 
@@ -61,7 +104,6 @@ def make_dir(path):
     except OSError:
         if not os.path.isdir(path):
             raise
-
 
 def get_sequence(sequencefile):
     sequencefile_lines = sequencefile.readlines()
@@ -210,7 +252,6 @@ def m2_seq_final_analysis(args, f_log):
 
     print os.getcwd()
     simple_files = glob.glob('2_ShapeMapper/output/mutation_strings_oldstyle/*.simple')
-    print simple_files
     for sf in simple_files:
         print sf
         f_name = sf.split("/")[-1]
@@ -224,6 +265,8 @@ def m2_seq_final_analysis(args, f_log):
                   args.name + " --offset " + str(args.offset) + " --outprefix " + f_name)
     os.chdir(currdir)
 
+
+check_required_programs()
 
 currdir = os.getcwd()
 f_log = open(currdir + '/' + 'AnalysisLog.txt', 'w')

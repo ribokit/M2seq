@@ -1,9 +1,7 @@
 Primers:
 RTB008	GGTATATGTACA
 RTB009	CCCGCGCTGGGT
-Starting Novobarcode demultiplexing at: 16:26:12, 6/19
-Finished demultiplexing at: 16:26:14, 6/19
 
-Generating simple files at: 16:26:34, 6/19
-Finished generating simple files at: 16:26:34, 6/19
-Starting M2seq analysis at: 16:26:34, 6/19
+Generating simple files at: 17:43:58, 6/19
+Finished generating simple files at: 17:43:58, 6/19
+Starting M2seq analysis at: 17:43:58, 6/19

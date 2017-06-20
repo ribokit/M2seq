@@ -8,8 +8,9 @@ cd ../
 mv test test_master
 
 # then rerun after checking out your favorite branch.
-cp -rf example_files/ test/
 git checkout MY_TEST_BRANCH
+
+cp -rf example_files/ test/
 cd test/
 source README
 cd ../
