@@ -252,7 +252,6 @@ def m2_seq_final_analysis(args, f_log):
 
     print os.getcwd()
     simple_files = glob.glob('2_ShapeMapper/output/mutation_strings_oldstyle/*.simple')
-    print simple_files
     for sf in simple_files:
         print sf
         f_name = sf.split("/")[-1]

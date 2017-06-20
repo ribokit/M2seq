@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #######################################################################################
-# Analysis of 2D signal in mutational profiling sequencing data (MaP2D)
+# Analysis of 2D signal in mutate-and-map sequencing data (M2-seq)
 #######################################################################################
 #
 # Simple to RDAT
@@ -8,7 +8,7 @@
 # This script generates a 2D correlated mutational profiling dataset using data in 'simple' binary format that records the mutations in sequenced cDNAs
 #
 # The outputs of the script are:
-#        1. An RDAT file containing the MaP2D (two-dimensional mutational profiling) data
+#        1. An RDAT file containing the M2-seq (two-dimensional mutational profiling) data
 #        2. A .log file recording minor output from the analysis, e.g. input files
 #
 # Clarence Cheng, 2015-2016
