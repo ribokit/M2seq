@@ -9,7 +9,7 @@ Ensure that you have the following installed:
 * BowTie2 is needed for ShapeMapper. Available here: https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.2.9/. Version 2.2.9 works.
 * the `nwalign` python package, which you can install via `sudo pip install nwalign`
 * numpy
-* The RDATkit for handling RDAT data files. Available at https://github.com/hitrace/rdatkit
+* The RDATkit for handling RDAT data files. Available at https://github.com/ribokit/RDATKit
 
 Add the M2seq, novobarcode, etc. folders to your PATH. For example in your `.bashrc` add lines like `PATH=$PATH:$HOME/src/M2seq`.
 
