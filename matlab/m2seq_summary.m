@@ -44,14 +44,20 @@ Z = output_Zscore_from_rdat( [], r, r_nomod, [], 1, 1 );
 %scalefactor = [];
 %m2seqplot( rZ, [], scalefactor );
 
+
 subplot( 2, 2, 3);
 
 % old cluster analysis from Kladwang, Nature Chemistry 2012
 %print_mode = 0;
 %cluster_z_scores( Z, r.structure, r.offset, print_mode );
 [Zfinal, structure] = m2net( Z, r );
+title( 'M2net detections in black; reference structure in red squares');
 
 show_recovered_helices( r.structure, structure, r.offset, r.sequence, Z, {}, {[2, 2, 4], [2, 2, 2]} );
+subplot(2,2,2);
+title( 'M2net detections in colors, shown on reference structure' );
+subplot(2,2,4);
+title( 'M2net detections in colored arrows, shown on Z-score heatmap' );
 
 subplot(2,2,1);
 title( summary_title );

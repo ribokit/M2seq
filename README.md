@@ -1,7 +1,8 @@
 # M2seq
+##Analysis of 2D mutate-and-map signal in next-generation-sequencing data
 
-Analysis of 2D mutate-and-map signal in next-generation-sequencing data
 
+### Installation
 Ensure that you have the following installed:
 
 * Novobarcode, part of the Novoalign software package, which is freely available for educational and not-for-profit use. Download the latest version of Novoalign at http://www.novocraft.com/support/download/
@@ -13,6 +14,7 @@ Ensure that you have the following installed:
 
 Add the M2seq, novobarcode, etc. folders to your PATH. For example in your `.bashrc` add lines like `PATH=$PATH:$HOME/src/M2seq`.
 
+### Running the code
 To test on example sequencing data, download the two example FASTQs from [this link](https://www.dropbox.com/sh/0xrs2aypzzlims9/AACFa_pbuZ8QYB1O2rE-1fN-a?dl=0) and move them to the Tutorial folder. Then, run:
 
     m2seq.py P4P6.fa RTBbarcodes.fa Sample1_S1_L001_R1_001.fastq Sample1_S1_L001_R2_001.fastq --config example.cfg --offset 89
@@ -38,6 +40,7 @@ The output of the pipeline includes, for each barcode:
 * log files
 The ExampleResults archive contains these expected outputs from running the analysis on the example sequencing data at the link above.
 
+### Visualizing the mutate-and-map output
 The key modes of visualizing the M2seq data are as a 2D plot (mutate-and-map style) and as mutation spectra (rates of mutation/deletion both across the sequence and on average).
 
 To view the 2D plot, open MATLAB, make sure the `matlab` folder is in your MATLAB path, and run:
@@ -50,5 +53,18 @@ To view the mutation spectra, open MATLAB and run:
 
     mut_heatmap('2_ShapeMapper/output/counted_mutations/RTB005_P4P6.csv',103:260,'',13);
 
-Compare the resulting plot to the mutation spectra in the Figures folder: ExampleSpectra.eps, ExampleSpectra_mut_avg.eps, ExampleSpectra_mut_max.eps
+Compare the resulting plot to the mutation spectra in the Figures folder: `ExampleSpectra.eps`, `ExampleSpectra_mut_avg.eps`, `ExampleSpectra_mut_max.eps`
 
+### Structural analysis
+Two modes of structural analysis are available:
+
+* `M2-net` is a neural-net-inspired analysis that detects helix signatures in the mutate-and-map data without making assumptions about RNA folding energy models. It largely reproduces visual analysis.
+
+* The `RNAstructure` secondary structure modeling package (version 6.0, expected to be released in mid-2017) can take in M2seq data to guide modeling of all the helices in a model and estimate confidence in the structures.
+
+Both styles of analysis can be run through `MATLAB` scripts available in the **Biers** repository – check out [installation instructions](https://ribokit.github.io/Biers/install/) and some [examples on the P4-P6 and GIR1 RNAs](https://ribokit.github.io/Biers/rnastructure/#rnastructure-M2seq) on RiboKit.
+
+### Citation
+If you use this software, please cite:
+	
+Cheng, C. Kladwang, W. Yesselman, J. Das, R. (2017) "RNA structure inference through chemical mapping after accidental or intentional mutations" *BioRxiv* [https://doi.org/10.1101/169953.](https://doi.org/10.1101/169953)
