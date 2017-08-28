@@ -1,0 +1,16 @@
+# This is a sample manifest for analyzing multiple samples concurrently
+
+undemultiplexed:
+	read1: path/to/read1.fastq
+	read2: path/to/read2.fastq
+
+samples:
+	- name: 
+	  sequence:
+	  barcode:
+	  barcode_tag:
+
+	- name:
+	  sequence: 
+	  barcode:
+	  barcode_tag:

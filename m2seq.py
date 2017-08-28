@@ -19,26 +19,9 @@ import os, sys, time
 import shutil
 import argparse
 import glob
+import yaml
 
-
-# https://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
-def which(program):
-    import os
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-    fpath, fname = os.path.split(program)
-    if fpath:
-        if is_exe(program):
-            return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                return exe_file
-
-    return None
+from utils import which, timeStamp, make_dir, get_sequence
 
 
 def check_required_programs():
@@ -64,6 +47,7 @@ def check_required_programs():
     else:
         print "BowTie2 is detected ..."
 
+
 def parse_commandline_args():
     parser = argparse.ArgumentParser()
 
@@ -79,6 +63,8 @@ def parse_commandline_args():
 
     parser.add_argument('--only_demultiplex', type=bool)
 
+    parser.add_argument('--manifest', type=argparse.FileType('r'))
+
     args = parser.parse_args()
     if args.name == 'PLACEHOLDER':
         seq_file = args.sequencefile.name.split("/")[-1]
@@ -87,34 +73,13 @@ def parse_commandline_args():
 
     return args
 
+def parse_manifest(manifest_path):
+    with open(manifest_path, 'r') as f:
+        manifest_data = yaml.load(f)
+    
 
-def timeStamp():
-    t = time.localtime()
-    month = t.tm_mon
-    day = t.tm_mday
-    hour = t.tm_hour
-    minute = t.tm_min
-    second = t.tm_sec
-    return '%i:%i:%i, %i/%i'%(hour, minute, second, month, day)
-
-
-def make_dir(path):
-    try:
-        os.mkdir(path)
-    except OSError:
-        if not os.path.isdir(path):
-            raise
-
-def get_sequence(sequencefile):
-    sequencefile_lines = sequencefile.readlines()
-
-    sequence = sequencefile_lines[1].strip().upper()
-    # check for Us
-    for e in sequence:
-        if e == 'U':
-            raise ValueError("your sequence in " + sequencefile + " has Us not Ts please fix!" )
-
-    return sequence
+def validate_manifest(manifest_data):
+    pass
 
 
 def get_barcode_sequences(args, f_log):
@@ -265,43 +230,50 @@ def m2_seq_final_analysis(args, f_log):
                   args.name + " --offset " + str(args.offset) + " --outprefix " + f_name)
     os.chdir(currdir)
 
+def single_sample_analysis(args):
+    currdir = os.getcwd()
+    with open(os.path.join(currdir, 'AnalysisLog.txt'), 'w') as f_log:
+        # make directories now
+        make_dir(currdir + '/1_Demultiplex')
+        make_dir(currdir + '/2_ShapeMapper')
+        make_dir(currdir + '/3_M2seq')
+        make_dir(currdir + '/3_M2seq/simple_files')
 
-check_required_programs()
+        # TODO move this into settings.py
+        file_path = os.path.realpath(__file__)
+        spl = file_path.split("/")
+        base_dir = "/".join(spl[:-1])
 
-currdir = os.getcwd()
-f_log = open(currdir + '/' + 'AnalysisLog.txt', 'w')
+        sequence = get_sequence(args.sequencefile)
+        barcodes = get_barcode_sequences(args, f_log)
 
-# make directories now
-make_dir(currdir + '/1_Demultiplex')
-make_dir(currdir + '/2_ShapeMapper')
-make_dir(currdir + '/3_M2seq')
-make_dir(currdir + '/3_M2seq/simple_files')
+        # should we demultiplex?
+        if not valid_demultiplex_output(args, barcodes) or args.force_demultiplex:
+            demultiplex_fastq_files(args, f_log)
+            # create links instead of actually moving files, much cleaner
+            create_sym_link_to_demultiplex_files(args, barcodes)
+        else:
+            print "not demultiplexing it's done already, use --force_demultiplex to redo it"
 
-# TODO move this into settings.py
-file_path = os.path.realpath(__file__)
-spl = file_path.split("/")
-base_dir = "/".join(spl[:-1])
+        # run shaper mapper
+        run_shapemapper(args)
 
-args = parse_commandline_args()
+        # run m2seq analysis
+        m2_seq_final_analysis(args, f_log)
 
-sequence = get_sequence(args.sequencefile)
-barcodes = get_barcode_sequences(args, f_log)
 
-# should we demultiplex?
-if not valid_demultiplex_output(args, barcodes) or args.force_demultiplex:
-    demultiplex_fastq_files(args, f_log)
-    # create links instead of actually moving files, much cleaner
-    create_sym_link_to_demultiplex_files(args, barcodes)
-else:
-    print "not demultiplexing it's done already, use --force_demultiplex to redo it"
+def manifest_analysis():
+    pass
 
-# run shaper mapper
-run_shapemapper(args)
 
-# run m2seq analysis
-m2_seq_final_analysis(args, f_log)
+if __name__ == "__main__":
+    check_required_programs()
 
-f_log.close()
+    args = parse_commandline_args()
 
+    if args.manifest is not None:
+        manifest_analysis()
+    else:
+        single_sample_analysis(args)
 
 
