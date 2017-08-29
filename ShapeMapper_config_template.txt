@@ -57,7 +57,7 @@ primerLength = 10 # Length of random n-mers used to prime reverse transcription
 trimBothEnds = off # If on, a region primerLength+1 will also be excluded from
                    # the 5-prime end of each read.  This is needed when the sense
                    # of the RNA is not consistently known (e.g. transcriptome).
-minMapQual = 30  # Reads with mapping qualities below this threshold will be ignored
+minMapQual = 20  # Reads with mapping qualities below this threshold will be ignored
                  # Summary from Bowtie2 docs:
                  # Mapping quality = -10*log10(probability mapping position is wrong)
                  # A mapping quality of 10 corresponds to a 1 in 10 probability that a 

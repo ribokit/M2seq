@@ -129,9 +129,7 @@ def demultiplex_fastq_files(read1_path, read2_path, RTB_file_path, output_folder
     novobarcode_command = 'novobarcode -b {} -f {} {} -d {} > {}'.format(RTB_file_path, \
     read1_path, read2_path, novobarcode_outpath, novobarcode_log_path)
     print novobarcode_command
-    os.system(
-        'novobarcode -b ' + RTB_file_path + ' -f ' + read1_path + ' ' + read1_path +  \
-        ' -d 1_Demultiplex > 1_Demultiplex/novobarcode_log_Distance4.txt')
+    os.system(novobarcode_command)
     # f_log.write('\nFinished demultiplexing at: ' + timeStamp() + '\n')
 
 
@@ -314,8 +312,8 @@ def generate_novobarcode_file(manifest_data, outpath):
             barcodes.append([sample['barcode_tag'], sample['barcode']])
 
     with open(outpath, 'w') as outfile:
-        outfile.write('Distance:\t{}\n'.format(str(distance)))
-        outfile.write('Format:\t{}\n'.format(str(format)))  
+        outfile.write('Distance\t{}\n'.format(str(distance)))
+        outfile.write('Format\t{}\n'.format(str(format)))  
         for barcode in barcodes:
             outfile.write('{}\n'.format('\t'.join(barcode)))
 
@@ -341,11 +339,11 @@ def manifest_analysis(manifest_path):
     print 'Generated novobarcode RTB file and stored it at ' + novobarcode_file_path
 
     # Do the demultiplexing
-    # demultiplex_path = os.path.join(manifest_data['output_folder'], '1_Demultiplex')
-    # demultiplex_fastq_files(read1_path, \
-    #                         read2_path, \
-    #                         novobarcode_file_path, \
-    #                         manifest_data['output_folder'])
+    demultiplex_path = os.path.join(manifest_data['output_folder'], '1_Demultiplex')
+    demultiplex_fastq_files(read1_path, \
+                            read2_path, \
+                            novobarcode_file_path, \
+                            manifest_data['output_folder'])
 
     # Run SHAPEmapper for each construct
     for construct in manifest_data['constructs']:
