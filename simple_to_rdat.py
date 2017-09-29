@@ -19,7 +19,6 @@ import os, sys, time
 import argparse
 import numpy as np
 import sys
-print sys.path
 import nwalign as nw
 import string
 import re

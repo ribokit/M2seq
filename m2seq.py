@@ -260,15 +260,16 @@ def m2_seq_final_analysis(construct_name, offset=0):
     
     # Copy over our fasta file from the shapemapper folder to the m2seq folder
     shutil.copy(os.path.join('2_ShapeMapper', construct_name, construct_name + '.fa'), os.path.join('3_M2seq', construct_name))
-    fasta_path = os.path.join('3_M2seq', construct_name, construct_name + '.fa')
 
     os.chdir(currdir + '/3_M2seq/' + construct_name + '/simple_files')
+    fasta_path = '../' + construct_name + '.fa'
     simple_files = glob.glob('*.simple')
     for sf in simple_files:
         f_name = sf.split('.')[0]
-        print sys.executable
-        os.system(sys.executable + ' ' + M2SEQ_FOLDER + "/simple_to_rdat.py " + fasta_path + " --simplefile " + sf + " --name " +
-                  construct_name + " --offset " + str(offset) + " --outprefix " + f_name)
+        s2r_command = sys.executable + ' ' + M2SEQ_FOLDER + "/simple_to_rdat.py " + fasta_path + " --simplefile " + sf + " --name " + \
+                  construct_name + " --offset " + str(offset) + " --outprefix " + f_name
+        print s2r_command
+        os.system(s2r_command)
     os.chdir(currdir)
 
 def single_sample_analysis(args):
@@ -357,7 +358,7 @@ def manifest_analysis(manifest_path):
         shapemapper_output_folder = os.path.join('2_ShapeMapper', construct_name)
         make_dir(shapemapper_output_folder)
 
-        create_sym_link_to_demultiplex_files(read1_path, read2_path, construct_barcodes, shapemapper_output_folder)
+        # create_sym_link_to_demultiplex_files(read1_path, read2_path, construct_barcodes, shapemapper_output_folder)
 
         # Create ShapeMapper .cfg file for the construct
         # We do this by importing a string template from an external file, then replacing the
@@ -383,7 +384,9 @@ def manifest_analysis(manifest_path):
         run_shapemapper(shapemapper_output_folder, cfg_path)
 
         # Run the final M2-seq analysis
-        # m2_seq_final_analysis(construct_name)
+        make_dir(os.path.join('3_M2seq', construct_name))
+        make_dir(os.path.join('3_M2seq', construct_name, 'simple_files'))
+        m2_seq_final_analysis(construct_name)
 
 
 
