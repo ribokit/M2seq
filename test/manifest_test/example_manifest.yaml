@@ -1,0 +1,9 @@
+# This is a sample manifest for analyzing multiple samples concurrently
+output_folder: output
+
+experimental_design_file: example_experimental_design_file.csv
+barcode_alias_file: example_barcode_alias_file.csv
+
+undemultiplexed:
+    read1: data/read1.fastq
+    read2: data/read2.fastq

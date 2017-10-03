@@ -1,0 +1,20 @@
+Current directory: /usr/local/src/M2seq/test/manifest_test/output/3_M2seq/P4P6-noHP/simple_files
+
+Simple data file provided:	RTB008_P4P6-noHP.txt.simple
+Generating 2D data from simple data file.
+
+Starting analysis from simple file at 2017/10/03 10:41:30
+
+
+Total number of sequences: 461
+Number of sequences used for RT stop reactivities: 460
+Full-length filter: alignment must extend to at least position 10
+Quality filter (use for 2D data if N or fewer mismatches to WT): N = 10
+Number of sequences passing full-length and quality filters: 455
+Number of sequences used for 2D data (at least 1 mutation): 82
+
+RDAT file created: /usr/local/src/M2seq/test/manifest_test/output/3_M2seq/P4P6-noHP/simple_files/RTB008_P4P6-noHP.reactivity.rdat
+RDAT file created: /usr/local/src/M2seq/test/manifest_test/output/3_M2seq/P4P6-noHP/simple_files/RTB008_P4P6-noHP_P4P6-noHP.raw.rdat
+
+Finished analysis from simple file at 2017/10/03 10:41:30
+

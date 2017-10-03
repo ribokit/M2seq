@@ -1,0 +1,14 @@
+# novobarcode (1.00) - Tagged Read Classifier.
+# (C) 2008-2015 NovoCraft Technologies Sdn Bhd.
+# License file: 
+# Licensed for evaluation, educational, and not-for-profit use only.
+#  novobarcode -b output/RTBbarcodes.fa -f data/read1.fastq data/read2.fastq -d output/1_Demultiplex 
+# Opening barcode tag file 'output/RTBbarcodes.fa'...
+# Closing tag file.
+# Distance 4
+# Format 5 
+ID	Tag	Count
+RTB009	CCCGCGCTGGGT	329
+RTB008	GGTATATGTACA	487
+NC	NC	24184
+# Finished at Tue Oct  3 10:41:01 2017

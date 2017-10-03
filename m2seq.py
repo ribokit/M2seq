@@ -21,6 +21,7 @@ import argparse
 import glob
 import yaml
 from string import Template
+import csv
 
 from utils import which, timeStamp, make_dir, get_sequence
 
@@ -85,6 +86,12 @@ def parse_manifest(manifest_path):
     with open(manifest_path, 'r') as f:
         manifest_data = yaml.load(f)
     
+    print manifest_data
+
+    if 'barcode_alias_file' not in manifest_data or manifest_data['barcode_alias_file'] is '':
+        manifest_data['barcode_alias_file'] = None
+    manifest_data['constructs'] = parse_experimental_design(manifest_data['experimental_design_file'], manifest_data['barcode_alias_file'])
+    
     print 'Loaded manifest file, it was read in as the following object data:'
     print manifest_data
     
@@ -94,7 +101,45 @@ def parse_manifest(manifest_path):
     return manifest_data
 
 
+def parse_experimental_design(experimental_design_path, barcode_alias_path=None):
+    """
+    Parse experimental design and barcode alias CSV files containing experimental design 
+    information.
+    Returns 
+    """
+
+    # First we open and read in the barcode aliases if it exists
+    # TODO: Validate barcode alias uniqueness
+    if barcode_alias_path is not None:
+        with open(barcode_alias_path, 'r') as f:
+            barcode_alias_reader = csv.DictReader(f)
+            barcode_aliases = {}
+            for line in barcode_alias_reader:
+                barcode_aliases[line['Barcode alias']] = line['Barcode sequence']
+
+    # Then, we open up and read in the experimental design file
+    # we take care to swap out the barcode alias with the actual barcode 
+    with open(experimental_design_path, 'r') as f:
+        experimental_design_reader = csv.DictReader(f)
+        constructs = {}
+        for line in experimental_design_reader:
+
+            if line['Construct'] not in constructs:
+                constructs[line['Construct']] = {'Sequence': line['Construct sequence'], 'Samples': []}
+
+            sample = {}
+            sample['Treatment'] = line['Treatment']
+
+            if line['Barcode alias'] is '':
+                sample['Barcode name'] = line['Barcode name'] 
+                sample['Barcode sequence'] = line['Barcode sequence']
+            else:
+                sample['Barcode name'] = line['Barcode alias']
+                sample['Barcode sequence'] = barcode_aliases[line['Barcode alias']]
+            constructs[line['Construct']]['Samples'].append(sample)
     
+    return constructs
+
 
 def validate_manifest(manifest_data):
     pass
@@ -144,16 +189,15 @@ def valid_demultiplex_output(args, barcodes):
     return 1
 
 
-def create_sym_link_to_demultiplex_files(read1_path, read2_path, construct_barcodes, output_folder):
-    read1fastq_name = read1_path.split("/")[-1]
-    read2fastq_name = read2_path.split("/")[-1]
-    print read1fastq_name
-    print read1_path
+def create_sym_link_to_demultiplexed_files(read1_path, read2_path, construct_barcodes, construct_name, output_folder):
+    read1fastq_name = os.path.basename(read1_path)
+    read2fastq_name = os.path.basename(read2_path)
     for tag, seq in construct_barcodes:
-        fname_1 = '1_Demultiplex/' + seq + '/' + read1fastq_name
-        fname_2 = '1_Demultiplex/' + seq + '/' + read2fastq_name
-        new_fastq_names = [os.path.join(output_folder, tag + '_S1_L001_R1_001.fastq'),
-                           os.path.join(output_folder, tag + '_S1_L001_R2_001.fastq')]
+        fname_1 = os.path.join(output_folder, '1_Demultiplex', seq, read1fastq_name)
+        fname_2 = os.path.join(output_folder, '1_Demultiplex', seq, read2fastq_name) 
+        new_fastq_names = [os.path.join(output_folder, '2_ShapeMapper', construct_name,  tag + '_S1_L001_R1_001.fastq'),
+                           os.path.join(output_folder, '2_ShapeMapper', construct_name,  tag + '_S1_L001_R2_001.fastq')]
+        print 'ln -s ' + os.path.abspath(fname_1) + " " + os.path.abspath(new_fastq_names[0])
         os.system('ln -s ' + os.path.abspath(fname_1) + " " + os.path.abspath(new_fastq_names[0]))
         os.system('ln -s ' + os.path.abspath(fname_2) + " " + os.path.abspath(new_fastq_names[1]))
 
@@ -182,11 +226,14 @@ def generate_sequence_fasta(name, sequence, save_folder):
         f.write('{}'.format(sequence))
     return save_path
 
+
 def generate_shapemapper_config(construct_name, construct_barcodes, config_template):
     pass
 
+
 def valid_shapemapper_output(args):
     pass
+
 
 def muts_to_simple(mutsfile):
     simplename = mutsfile + '.simple'
@@ -244,26 +291,28 @@ def muts_to_simple(mutsfile):
     f_simple.close()
 
 
-def m2_seq_final_analysis(construct_name, offset=0):
+def m2_seq_final_analysis(construct_name, output_folder, offset=0):
     print 'Starting M2seq analysis'
     # f_log.write('\nStarting M2seq analysis at: ' + timeStamp() + '\n')
     currdir = os.getcwd()
-    make_dir(os.path.join('3_M2seq', construct_name, 'simple_files'))
+    make_dir(os.path.join(output_folder, '3_M2seq', construct_name, 'simple_files'))
 
     print os.getcwd()
-    simple_files = glob.glob(os.path.join('2_ShapeMapper', construct_name, 'output/mutation_strings_oldstyle/*.simple'))
+    simple_files = glob.glob(os.path.join(output_folder, '2_ShapeMapper', construct_name, 'output/mutation_strings_oldstyle/*.simple'))
     for sf in simple_files:
         print sf
         f_name = sf.split("/")[-1]
-        os.system('ln -s ' + os.path.abspath(sf) + " " + '3_M2seq/' + construct_name + '/simple_files/' + f_name)
+        os.system('ln -s ' + os.path.abspath(sf) + " " + os.path.join(output_folder, '3_M2seq', construct_name, 'simple_files', f_name))
 
     
     # Copy over our fasta file from the shapemapper folder to the m2seq folder
-    shutil.copy(os.path.join('2_ShapeMapper', construct_name, construct_name + '.fa'), os.path.join('3_M2seq', construct_name))
+    shutil.copy(os.path.join(output_folder, '2_ShapeMapper', construct_name, construct_name + '.fa'), \
+                os.path.join(output_folder, '3_M2seq', construct_name))
 
-    os.chdir(currdir + '/3_M2seq/' + construct_name + '/simple_files')
+    os.chdir(os.path.join(currdir, output_folder, '3_M2seq', construct_name, 'simple_files'))
     fasta_path = '../' + construct_name + '.fa'
     simple_files = glob.glob('*.simple')
+    print simple_files
     for sf in simple_files:
         f_name = sf.split('.')[0]
         s2r_command = sys.executable + ' ' + M2SEQ_FOLDER + "/simple_to_rdat.py " + fasta_path + " --simplefile " + sf + " --name " + \
@@ -293,7 +342,7 @@ def single_sample_analysis(args):
         if not valid_demultiplex_output(args, barcodes) or args.force_demultiplex:
             demultiplex_fastq_files(args, f_log)
             # create links instead of actually moving files, much cleaner
-            create_sym_link_to_demultiplex_files(args, barcodes)
+            create_sym_link_to_demultiplexed_files(args, barcodes)
         else:
             print "not demultiplexing it's done already, use --force_demultiplex to redo it"
 
@@ -304,13 +353,20 @@ def single_sample_analysis(args):
         m2_seq_final_analysis(args, f_log)
 
 
-def generate_novobarcode_file(manifest_data, outpath):
+def generate_novobarcode_file(constructs, outpath):
     distance = 4
     format = 5
     barcodes = []
-    for construct in manifest_data['constructs']:
-        for sample in construct['samples']:
-            barcodes.append([sample['barcode_tag'], sample['barcode']])
+
+    for construct in constructs:
+        for sample in constructs[construct]['Samples']:
+            barcode_name = sample['Barcode name']
+            barcode_sequence = sample['Barcode sequence'] 
+            barcodes.append([barcode_name, barcode_sequence])
+
+    # for construct in manifest_data['constructs']:
+    #     for sample in construct['samples']:
+    #         barcodes.append([sample['barcode_tag'], sample['barcode']])
 
     with open(outpath, 'w') as outfile:
         outfile.write('Distance\t{}\n'.format(str(distance)))
@@ -323,42 +379,46 @@ def generate_novobarcode_file(manifest_data, outpath):
 
 def manifest_analysis(manifest_path):
     currdir = os.getcwd()
-    make_dir(currdir + '/1_Demultiplex')
-    make_dir(currdir + '/2_ShapeMapper')
-    make_dir(currdir + '/3_M2seq')
-    make_dir(currdir + '/3_M2seq/simple_files')
 
     # Load in the manifest data
     manifest_data = parse_manifest(manifest_path)
+    constructs = manifest_data['constructs']
     read1_path = manifest_data['undemultiplexed']['read1']
     read2_path = manifest_data['undemultiplexed']['read2']
     output_folder = manifest_data['output_folder']
 
+    # Make the output folders
+    make_dir(os.path.join(manifest_data['output_folder'], '1_Demultiplex'))
+    make_dir(os.path.join(manifest_data['output_folder'], '2_ShapeMapper'))
+    make_dir(os.path.join(manifest_data['output_folder'], '3_M2seq'))
+    make_dir(os.path.join(manifest_data['output_folder'], '3_M2seq', 'simple_files'))
+
     # Generate barcode file
     novobarcode_file_path = os.path.join(manifest_data['output_folder'], 'RTBbarcodes.fa')
-    barcodes = generate_novobarcode_file(manifest_data, novobarcode_file_path)
+    barcodes = generate_novobarcode_file(constructs, novobarcode_file_path)
     print 'Generated novobarcode RTB file and stored it at ' + novobarcode_file_path
 
     # Do the demultiplexing
-    demultiplex_path = os.path.join(manifest_data['output_folder'], '1_Demultiplex')
+    demultiplex_path = os.path.join(output_folder, '1_Demultiplex')
     demultiplex_fastq_files(read1_path, \
                             read2_path, \
                             novobarcode_file_path, \
                             manifest_data['output_folder'])
 
     # Run SHAPEmapper for each construct
-    for construct in manifest_data['constructs']:
+    for construct_key in constructs:
         # Start by creating the necessary folder and symlinks into the 2_ShapeMapper folder
-        construct_sequence = construct['sequence']
-        construct_name = construct['name']
+        construct = constructs[construct_key]
+        construct_sequence = construct['Sequence']
         construct_barcodes = []
-        for sample in construct['samples']:
-            construct_barcodes.append([sample['barcode_tag'], sample['barcode']])
+        for sample in construct['Samples']:
+            construct_barcodes.append([sample['Barcode name'], sample['Barcode sequence']])
         
-        shapemapper_output_folder = os.path.join('2_ShapeMapper', construct_name)
+        shapemapper_output_folder = os.path.join(output_folder, '2_ShapeMapper', construct_key)
         make_dir(shapemapper_output_folder)
+        print shapemapper_output_folder
 
-        # create_sym_link_to_demultiplex_files(read1_path, read2_path, construct_barcodes, shapemapper_output_folder)
+        create_sym_link_to_demultiplexed_files(read1_path, read2_path, construct_barcodes, construct_key, output_folder)
 
         # Create ShapeMapper .cfg file for the construct
         # We do this by importing a string template from an external file, then replacing the
@@ -368,8 +428,8 @@ def manifest_analysis(manifest_path):
 
         construct_cfg_lines_template = '{0}: {0}_S1_L001_R1_001.fastq, {0}_S1_L001_R2_001.fastq = {1}\n'
         construct_cfg_lines = ''
-        for sample in construct['samples']:
-            construct_cfg_lines += construct_cfg_lines_template.format(sample['barcode_tag'], construct['name'])
+        for sample in construct['Samples']:
+            construct_cfg_lines += construct_cfg_lines_template.format(sample['Barcode name'], construct_key)
 
         cfg_contents = cfg_template.substitute({'cfg_lines':construct_cfg_lines})
 
@@ -378,15 +438,15 @@ def manifest_analysis(manifest_path):
             f.write(cfg_contents)
 
         # Generate sequence fasta in the construct folder
-        generate_sequence_fasta(construct_name, construct_sequence, shapemapper_output_folder)
+        generate_sequence_fasta(construct_key, construct_sequence, shapemapper_output_folder)
 
         # Run shapemapper
         run_shapemapper(shapemapper_output_folder, cfg_path)
 
         # Run the final M2-seq analysis
-        make_dir(os.path.join('3_M2seq', construct_name))
-        make_dir(os.path.join('3_M2seq', construct_name, 'simple_files'))
-        m2_seq_final_analysis(construct_name)
+        make_dir(os.path.join(output_folder, '3_M2seq', construct_key))
+        make_dir(os.path.join(output_folder, '3_M2seq', construct_key, 'simple_files'))
+        m2_seq_final_analysis(construct_key, output_folder)
 
 
 
