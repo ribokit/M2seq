@@ -70,6 +70,7 @@ def parse_commandline_args():
     # parser.add_argument('--only_demultiplex', type=bool)
 
     parser.add_argument('--manifest')
+    parser.add_argument('--skip_demultiplex', action='store_true')
 
     args = parser.parse_args()
     # if args.name == 'PLACEHOLDER':
@@ -208,13 +209,13 @@ def run_shapemapper(shapemapper_folder, shapemapper_config_path):
     print 'Starting ShapeMapper analysis'
     os.system("ShapeMapper.py " +  shapemapper_config_path.split('/')[-1])
 
-    # f_log.write('\nGenerating simple files at: ' + timeStamp())
+    print 'Generating simple files at:' + timeStamp()
     currdir = os.getcwd()
     outdir = os.path.join(currdir, 'output', 'mutation_strings_oldstyle')
     for file in os.listdir(outdir):
         if file.endswith('.txt'):
             muts_to_simple( os.path.join(outdir, file) )
-    # f_log.write('\nFinished generating simple files at: ' + timeStamp())
+    print 'Finished generating simple files at: ' + timeStamp()
 
     os.chdir(starting_folder)
     print os.getcwd()
@@ -293,6 +294,7 @@ def muts_to_simple(mutsfile):
 
 def m2_seq_final_analysis(construct_name, output_folder, offset=0):
     print 'Starting M2seq analysis'
+    print 'Starting M2seq analysis at: ' + timeStamp() 
     # f_log.write('\nStarting M2seq analysis at: ' + timeStamp() + '\n')
     currdir = os.getcwd()
     make_dir(os.path.join(output_folder, '3_M2seq', construct_name, 'simple_files'))
@@ -364,10 +366,6 @@ def generate_novobarcode_file(constructs, outpath):
             barcode_sequence = sample['Barcode sequence'] 
             barcodes.append([barcode_name, barcode_sequence])
 
-    # for construct in manifest_data['constructs']:
-    #     for sample in construct['samples']:
-    #         barcodes.append([sample['barcode_tag'], sample['barcode']])
-
     with open(outpath, 'w') as outfile:
         outfile.write('Distance\t{}\n'.format(str(distance)))
         outfile.write('Format\t{}\n'.format(str(format)))  
@@ -377,7 +375,8 @@ def generate_novobarcode_file(constructs, outpath):
     return barcodes
 
 
-def manifest_analysis(manifest_path):
+def manifest_analysis(args):
+    manifest_path = args.manifest
     currdir = os.getcwd()
 
     # Load in the manifest data
@@ -393,17 +392,20 @@ def manifest_analysis(manifest_path):
     make_dir(os.path.join(manifest_data['output_folder'], '3_M2seq'))
     make_dir(os.path.join(manifest_data['output_folder'], '3_M2seq', 'simple_files'))
 
-    # Generate barcode file
-    novobarcode_file_path = os.path.join(manifest_data['output_folder'], 'RTBbarcodes.fa')
-    barcodes = generate_novobarcode_file(constructs, novobarcode_file_path)
-    print 'Generated novobarcode RTB file and stored it at ' + novobarcode_file_path
+    if args.skip_demultiplex is True:
+        print "Detected that the --skip_demultiplex flag was specified. Skipping demultiplexing step!"
+    else:
+        # Generate barcode file
+        novobarcode_file_path = os.path.join(manifest_data['output_folder'], 'RTBbarcodes.fa')
+        barcodes = generate_novobarcode_file(constructs, novobarcode_file_path)
+        print 'Generated novobarcode RTB file and stored it at ' + novobarcode_file_path
 
-    # Do the demultiplexing
-    demultiplex_path = os.path.join(output_folder, '1_Demultiplex')
-    demultiplex_fastq_files(read1_path, \
-                            read2_path, \
-                            novobarcode_file_path, \
-                            manifest_data['output_folder'])
+        # Do the demultiplexing
+        demultiplex_path = os.path.join(output_folder, '1_Demultiplex')
+        demultiplex_fastq_files(read1_path, \
+                                read2_path, \
+                                novobarcode_file_path, \
+                                manifest_data['output_folder'])
 
     # Run SHAPEmapper for each construct
     for construct_key in constructs:
@@ -456,7 +458,7 @@ if __name__ == "__main__":
     args = parse_commandline_args()
 
     if args.manifest is not None:
-        manifest_analysis(args.manifest)
+        manifest_analysis(args)
     else:
         single_sample_analysis(args)
 
