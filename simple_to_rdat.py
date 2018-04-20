@@ -105,6 +105,7 @@ def simple_to_rdat( args, sequence, name ):
         start_pos_counts = np.zeros((1,WTlen))
         start_pos_for_norm = np.zeros(WTlen)
         stop_reactivity  = np.zeros((1,WTlen))
+        stop_reactivity_err  = np.zeros((1,WTlen))
 
         #### Read simple file and generate 2D data
         for line in args.simplefile:
@@ -164,12 +165,13 @@ def simple_to_rdat( args, sequence, name ):
         f_log.write( '\nNumber of sequences used for 2D data (at least 1 mutation): ' + str(usenm) + '\n\n')
 
         # #### Get stop reactivities, using Fi/[F0 + F1 ... + Fi] expression.
-        # sum_counts = start_pos_counts[ 0, 0 ]
-        # for (idx,counts) in enumerate(start_pos_counts[0,1:]):
-        #     sum_counts += counts
-        #     stop_reactivity[0, idx ] = ( float(counts)/sum_counts )
-        # filename = currdir + '/' + args.outprefix + '_' + name + '.stop_reactivity.rdat'
-        # output_rdat( filename, args, sequence, name, [], seqpos, stop_reactivity, np.zeros((0,WTlen)), f_log )
+        sum_counts = start_pos_counts[ 0, 0 ]
+        for (idx,counts) in enumerate(start_pos_counts[0,1:]):
+            sum_counts += counts
+            stop_reactivity[0, idx ] = ( float(counts)/sum_counts )
+            stop_reactivity_err[ 0, idx ] = np.sqrt(float(counts))/sum_counts
+        filename = currdir + '/' + args.outprefix + '_' + name + '.stop_reactivity.rdat'
+        output_rdat( filename, args, sequence, name, [], seqpos, stop_reactivity, stop_reactivity_err, np.zeros((0,WTlen)), np.zeros((0,WTlen)), f_log, sum_counts, 0 )
 
         if fltnm == 0:
             f_log.write( '\nNo sequences passing both full-length and quality filters! Setting normalization factor for "modification fraction" to 1\n' )
