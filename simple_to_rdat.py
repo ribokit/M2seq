@@ -102,10 +102,13 @@ def simple_to_rdat( args, sequence, name ):
         mut_idxs   = []
         mut_counts = []
         mut_mat    = np.zeros((1,WTlen+1))
-        start_pos_counts = np.zeros((1,WTlen))
+        start_pos_counts = np.zeros((1,WTlen)) # used for 1D stop reactivity
+        mut_pos_counts   = np.zeros((1,WTlen)) # used for 1D mut  reactivity
         start_pos_for_norm = np.zeros(WTlen)
         stop_reactivity  = np.zeros((1,WTlen))
         stop_reactivity_err  = np.zeros((1,WTlen))
+        mut_reactivity  = np.zeros((1,WTlen))
+        mut_reactivity_err  = np.zeros((1,WTlen))
 
         #### Read simple file and generate 2D data
         for line in args.simplefile:
@@ -150,6 +153,7 @@ def simple_to_rdat( args, sequence, name ):
             # note further offset: mod_pos=0 means *no modifications*; mod_pos = 1 means modification at position 1
             # if we swtich to to 2D readout, maybe should decrement (add -1). Then no mod would actually *wrap* to WTlen (?)
             start_pos_counts[ 0, mod_pos ] += 1
+            mut_pos_counts  [ 0, mut_idx ] += 1
             stpnm += 1                                              # count sequences used for stop reactivities
 
         f_dist = open(currdir + '/' + args.outprefix + '_mutsperread.csv','w')
@@ -170,8 +174,12 @@ def simple_to_rdat( args, sequence, name ):
             sum_counts += counts
             stop_reactivity[0, idx ] = ( float(counts)/sum_counts )
             stop_reactivity_err[ 0, idx ] = np.sqrt(float(counts))/sum_counts
+            mut_reactivity[0, idx ] = ( float( mut_pos_counts[0,idx] )/sum_counts )
+            mut_reactivity_err[ 0, idx ] = np.sqrt(float(mut_pos_counts[0,idx]))/sum_counts
         filename = currdir + '/' + args.outprefix + '_' + name + '.stop_reactivity.rdat'
         output_rdat( filename, args, sequence, name, [], seqpos, stop_reactivity, stop_reactivity_err, np.zeros((0,WTlen)), np.zeros((0,WTlen)), f_log, sum_counts, 0 )
+        filename = currdir + '/' + args.outprefix + '_' + name + '.mut_reactivity.rdat'
+        output_rdat( filename, args, sequence, name, [], seqpos, mut_reactivity, mut_reactivity_err, np.zeros((0,WTlen)), np.zeros((0,WTlen)), f_log, sum_counts, 0 )
 
         if fltnm == 0:
             f_log.write( '\nNo sequences passing both full-length and quality filters! Setting normalization factor for "modification fraction" to 1\n' )
