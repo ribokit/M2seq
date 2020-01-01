@@ -76,8 +76,8 @@ def parse_commandline_args():
     parser.add_argument('--offset', type=int, default=0)
     parser.add_argument('--outprefix', type=str, default='out')
     parser.add_argument('--force_demultiplex', action='store_true')
-
     parser.add_argument('--only_demultiplex', type=bool)
+    parser.add_argument('--num_hits_cutoff',        type=int,  help='quality filter: maximum number of hits to allow before recording', default=10)
 
     args = parser.parse_args()
     if args.name == 'PLACEHOLDER':
@@ -188,6 +188,8 @@ def run_shapemapper(args):
     os.chdir("..")
 
 def valid_shapemapper_output(args):
+    outdir = currdir + '/2_ShapeMapper/output/mutation_strings_oldstyle/'
+
     pass
 
 def muts_to_simple(mutsfile):
@@ -261,8 +263,10 @@ def m2_seq_final_analysis(args, f_log):
     simple_files = glob.glob('*.simple')
     for sf in simple_files:
         f_name = sf.split('.')[0]
-        os.system(base_dir + "/simple_to_rdat.py ../../" + args.sequencefile.name + " --simplefile " + sf + " --name " +
-                  args.name + " --offset " + str(args.offset) + " --outprefix " + f_name)
+        cmd = base_dir + "/simple_to_rdat.py ../../" + args.sequencefile.name + " --simplefile " + sf + " --name " + \
+                  args.name + " --offset " + str(args.offset) + " --outprefix " + f_name + " --num_hits_cutoff " + str(args.num_hits_cutoff)
+        print cmd
+        os.system( cmd )
     os.chdir(currdir)
 
 
