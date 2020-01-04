@@ -70,9 +70,10 @@ def output_rdat( filename, args, sequence, name, row_indices, seqpos, WTdata, WT
                 data_annotations.append({'mutation':[string.replace(sequence[position-1],'T','U') + str(position + offset) + 'X'],
                                          'reads':str( mutnm[row_idx])})
         data = np.concatenate([WTdata, data2d], axis=0)                        # combine WT data and 2D data
+        errors = np.concatenate([WTdata_err, data2d_err], axis=0)                        # combine WT data_err and 2D data_err
 
         r = RDATFile()
-        r.save_construct(construct, data, sequence_RNA, structure, offset, annotations, data_annotations, filename, comments, version, seqpos)
+        r.save_construct(construct, data, sequence_RNA, structure, offset, annotations, data_annotations, filename, comments, version, seqpos, errors)
         # Note: Should include # of simple file lines, filters used, and # mutants passing filters in RDAT file
         #       and edit read_rdat_file.m in HiTRACE to read these figures; will streamline plotting
 
