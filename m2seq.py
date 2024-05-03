@@ -45,15 +45,15 @@ def check_required_programs():
     print "checking required external programs"
     if which('novobarcode') is None:
         raise ValueError("novobarcode program is not installed but required!, "
-                         "please install at: http://www.novocraft.com/support/download/")
+                         "please install v3 at: http://www.novocraft.com/support/download/")
     else:
         print "novobarcode is detected ..."
 
 
     if which("ShapeMapper.py") is None:
         raise ValueError("ShapeMapper 1.2 is required, software developed by the Weeks lab at UNC Chapel Hill for 1D "
-                         "analysis ofmutational profiling data. Available at http://www.chem.unc.edu/rna/software.html "
-                         "(Make sure you go into that directory and run make.)")
+                         "analysis of mutational profiling data. Available at: https://github.com/Weeks-UNC/ShapeMapper_v1.2 "
+                         "(Make sure you go into that directory and run make and chmod +x ShapeMapper.py.)")
     else:
         print "ShapeMapper is detected ..."
 

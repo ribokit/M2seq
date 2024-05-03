@@ -1,16 +1,22 @@
 # M2seq
-##Analysis of 2D mutate-and-map signal in next-generation-sequencing data
+## Analysis of 2D mutate-and-map signal in next-generation-sequencing data
 
 
 ### Installation
 Ensure that you have the following installed:
 
-* Novobarcode, part of the Novoalign software package, which is freely available for educational and not-for-profit use. Download the latest version of Novoalign at http://www.novocraft.com/support/download/
-* ShapeMapper 1.2, software developed by the Weeks lab at UNC Chapel Hill for 1D analysis of mutational profiling data. Available at http://www.chem.unc.edu/rna/software.html  (Make sure you go into that directory and run `make`.)
+* Novobarcode, part of the Novoalign software package, which up until version 3, has been freely available for educational and not-for-profit use. Download version 3 of Novoalign at http://www.novocraft.com/support/download/
+* ShapeMapper 1.2, software developed by the Weeks lab at UNC Chapel Hill for 1D analysis of mutational profiling data. Available at https://github.com/Weeks-UNC/ShapeMapper_v1.2  (Make sure you go into that directory and run `make` and `chmod +x ShapeMapper.py`)
 * BowTie2 is needed for ShapeMapper. Available here: https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.2.9/. Version 2.2.9 works.
-* the `nwalign` python package, which you can install via `sudo pip install nwalign`
-* numpy
-* The RDATkit for handling RDAT data files. Available at https://github.com/ribokit/RDATKit
+* `python2.7`. Most modern environments have moved on to `python3.x`, so this requires reinstating python2.7:
+	* Clusters may have `python2.7` available through a module, accessed through `module load python/2.7`. 
+	* If that doesn't work, you may need to install `python2.7` to run in a virtual environment through `virtualenv`. 
+	* Make sure that if you type `python`, you see version `Python 2.7.x` displayed at the interactive prompt. 
+* the `nwalign`, `numpy`, `scipy`, and `matplotlib` python packages, which you can install via `sudo pip install nwalign`. 
+	* Note: If `pip` does not work in `python2.7`, you can get it through `curl 'https://raw.githubusercontent.com/pypa/get-pip/20.3.4/get-pip.py' -o get-pip.py` and then `python2 get-pip.py`.
+	* You can test correct installation, by typing `python`, and check that  `import nwalign`, etc. all work without errors.
+* You may also need `libpng v1.2`, available through `module load libpng/1.2` on clusters -- you'll need to install it otherwise. Check in `python` if you can `import matlab._png` without errors.
+* The RDATkit for handling RDAT data files. Note while there is a pip installable version of this package, it may not install correctly. Instead, grab [Version 1.6](https://github.com/ribokit/RDATKit/releases/tag/v1.6). Make sure to setup `path.py` in `rdatkit` and also add to your Python path with a command like: `export PYTHONPATH=$PYTHONPATH:/PATH/TO/RDATKit-1.6/`.
 
 Add the M2seq, novobarcode, etc. folders to your PATH. For example in your `.bashrc` add lines like `PATH=$PATH:$HOME/src/M2seq`.
 
@@ -45,13 +51,21 @@ The key modes of visualizing the M2seq data are as a 2D plot (mutate-and-map sty
 
 To view the 2D plot, open MATLAB, make sure the `matlab` folder is in your MATLAB path, and run:
 
-    m2seqplot('3_M2seq/simple_files/RTB005_P4P6_P4P6.reactivity.rdat');
+    m2seqplot('3_M2seq/simple_files/RTB005_P4P6.reactivity.rdat');
 
 Compare the resulting plot to the 2D plot in the `ExampleResults` folder (you may need to unzip `ExampleResults.zip`): `Example2D.eps`
+
+It should look something like this:
+
+![](Tutorial/example_output_images/tutorial_rdat_file_image.png)
 
 To view the mutation spectra, open MATLAB and run:
 
     mut_heatmap('2_ShapeMapper/output/counted_mutations/RTB005_P4P6.csv',103:260,'',13);
+
+One of the figures should look like this:
+
+![](Tutorial/example_output_images/tutorial_mutation_spectrum_image.png)
 
 Compare the resulting plot to the mutation spectra in the Figures folder: `ExampleSpectra.eps`, `ExampleSpectra_mut_avg.eps`, `ExampleSpectra_mut_max.eps`
 
@@ -67,4 +81,4 @@ Both styles of analysis can be run through `MATLAB` scripts available in the **B
 ### Citation
 If you use this software, please cite:
 	
-Cheng, C. Kladwang, W. Yesselman, J. Das, R. (2017) "RNA structure inference through chemical mapping after accidental or intentional mutations" *BioRxiv* [https://doi.org/10.1101/169953.](https://doi.org/10.1101/169953)
+Cheng, C. Kladwang, W. Yesselman, J. Das, R. (2017) "RNA structure inference through chemical mapping after accidental or intentional mutations" Proc Natl Acad Sci U S A. 2017 Sep 12;114(37):9876-9881. [doi: 10.1073/pnas.1619897114](https://doi.org/10.1073/pnas.1619897114)
