@@ -49,7 +49,7 @@ The ExampleResults archive contains these expected outputs from running the anal
 ### Visualizing the mutate-and-map output
 The key modes of visualizing the M2seq data are as a 2D plot (mutate-and-map style) and as mutation spectra (rates of mutation/deletion both across the sequence and on average).
 
-To view the 2D plot, open MATLAB, make sure the `matlab` folder is in your MATLAB path, and run:
+To view the 2D plot, open MATLAB, make sure the `matlab` folder and subfolders are in your MATLAB path (check with `Set Path/Add to Subfolders...`), and run:
 
     m2seqplot('3_M2seq/simple_files/RTB005_P4P6.reactivity.rdat');
 
@@ -77,6 +77,14 @@ Two modes of structural analysis are available:
 * The `RNAstructure` secondary structure modeling package (version 6.0, expected to be released in mid-2017) can take in M2seq data to guide modeling of all the helices in a model and estimate confidence in the structures.
 
 Both styles of analysis can be run through `MATLAB` scripts available in the **Biers** repository – check out [installation instructions](https://ribokit.github.io/Biers/install/) and some [examples on the P4-P6 and GIR1 RNAs](https://ribokit.github.io/Biers/rnastructure/#rnastructure-M2seq) on RiboKit.
+
+A standardized workflow that runs each of the above steps is available through the command:
+
+```
+run_m2seq_plots('3_MaP2D/simple_files/RTB000_P4P6_P4P6noHP.reactivity.rdat','3_MaP2D/simple_files/RTB005_P4P6_P4P6noHP.reactivity.rdat');
+```
+
+with example output in `ExampleResults/m2seq_plots/`.
 
 ### Citation
 If you use this software, please cite:

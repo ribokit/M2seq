@@ -1,5 +1,5 @@
-function scalefactor = map2dplot( R, save_path, scalefactor, titl, secstr, fntsize, pdb, c2 )
-% map2dplot( R, save_path, scalefactor, titl, secstr, fntsize, pdb, c2 )
+function scalefactor = m2seqplot( R, save_path, scalefactor, titl, secstr, fntsize, pdb, c2 )
+% m2seqplot( R, save_path, scalefactor, titl, secstr, fntsize, pdb, c2 )
 %
 % For plotting 2D mutational profiling data (M2-seq):
 % Example command: map2dplot(rdat_var, '/path/to/filename', '', 'WK 10/2015 AMPure +DMS, <__ muts, ___ reads');
