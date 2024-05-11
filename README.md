@@ -53,7 +53,7 @@ To view the 2D plot, open MATLAB, make sure the `matlab` folder is in your MATLA
 
     m2seqplot('3_M2seq/simple_files/RTB005_P4P6.reactivity.rdat');
 
-Compare the resulting plot to the 2D plot in the `ExampleResults` folder (you may need to unzip `ExampleResults.zip`): `Example2D.eps`
+Compare the resulting plot to the 2D plot in the `ExampleResults` folder: `Example2D.eps`
 
 It should look something like this:
 

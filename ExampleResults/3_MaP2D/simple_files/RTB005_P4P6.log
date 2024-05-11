@@ -1,0 +1,18 @@
+Current directory: /Volumes/Backup2/FromLaCie/map2d_tutorial/3_MaP2D/simple_files
+
+Simple data file provided:	RTB005_P4P6.txt.simple
+Generating 2D data from simple data file.
+
+Starting analysis from simple file at 17:47:15, 9/21
+
+
+Total number of sequences: 295784
+Number of sequences used for RT stop reactivities: 295775
+Full-length filter: alignment must extend to at least position 10
+Quality filter (use for 2D data if N or fewer mismatches to WT): N = 10
+Number of sequences passing full-length and quality filters: 295509
+Number of sequences used for 2D data (at least 1 mutation): 291041RDAT file created: /Volumes/Backup2/FromLaCie/map2d_tutorial/3_MaP2D/simple_files/RTB005_P4P6_P4P6noHP.reactivity.rdat
+RDAT file created: /Volumes/Backup2/FromLaCie/map2d_tutorial/3_MaP2D/simple_files/RTB005_P4P6_P4P6noHP.raw.rdat
+
+Finished analysis from simple file at 17:48:22, 9/21
+

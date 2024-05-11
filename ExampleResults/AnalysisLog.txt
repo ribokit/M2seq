@@ -1,0 +1,15 @@
+Starting Novobarcode demultiplexing at: 17:10:56, 9/21
+Finished demultiplexing at: 17:21:19, 9/21
+Primers:
+RTB000	ACCAGGCGCTGG
+RTB005	ACAAAATGGTGG
+Starting ShapeMapper analysis at: 17:21:20, 9/21
+ShapeMapper command: ShapeMapper.py P4P6.cfg
+Finished ShapeMapper analysis at: 17:45:23, 9/21
+Generating simple files at: 17:45:23, 9/21
+Finished generating simple files at: 17:46:39, 9/21
+Starting MaP2D analysis at: 17:46:40, 9/21
+
+MaP2D command: simple_to_rdat.py ../P4P6.fa --simplefile RTB000_P4P6.txt.simple --name P4P6 --offset 89 --outprefix RTB000_P4P6
+MaP2D command: simple_to_rdat.py ../P4P6.fa --simplefile RTB005_P4P6.txt.simple --name P4P6 --offset 89 --outprefix RTB005_P4P6
+Finished MaP2D analysis at: 17:48:22, 9/21

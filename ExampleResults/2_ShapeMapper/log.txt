@@ -1,0 +1,67 @@
+Pipeline started in /Volumes/Backup2/FromLaCie/map2d_tutorial/2_ShapeMapper at 17:21:20, 9/21
+
+Starting config file parsing at at 17:21:20, 9/21
+Config file successfully parsed at at 17:21:20, 9/21
+
+Starting reference index building at at 17:21:20, 9/21
+Replaced title line in fasta file /Volumes/Backup2/FromLaCie/map2d_tutorial/2_ShapeMapper/P4P6.fa with filename
+P4P6 bowtie index built successfully at 17:21:22, 9/21.
+
+Starting read quality filtering at at 17:21:22, 9/21
+RTB005_S1_L001_R2_001.fastq quality filtered successfully.
+RTB005_S1_L001_R1_001.fastq quality filtered successfully.
+RTB000_S1_L001_R1_001.fastq quality filtered successfully.
+RTB000_S1_L001_R2_001.fastq quality filtered successfully.
+
+Starting sequence alignment at at 17:22:21, 9/21
+Sample RTB000 aligned successfully.
+Sample RTB000 alignment stats:
+    224523 reads; of these:
+    224523 (100.00%) were paired; of these:
+    20530 (9.14%) aligned concordantly 0 times
+    203061 (90.44%) aligned concordantly exactly 1 time
+    932 (0.42%) aligned concordantly >1 times
+    ----
+    20530 pairs aligned concordantly 0 times; of these:
+    3480 (16.95%) aligned discordantly 1 time
+    ----
+    17050 pairs aligned 0 times concordantly or discordantly; of these:
+    34100 mates make up the pairs; of these:
+    31271 (91.70%) aligned 0 times
+    2774 (8.13%) aligned exactly 1 time
+    55 (0.16%) aligned >1 times
+    93.04% overall alignment rate
+Sample RTB005 aligned successfully.
+Sample RTB005 alignment stats:
+    706924 reads; of these:
+    706924 (100.00%) were paired; of these:
+    115154 (16.29%) aligned concordantly 0 times
+    584778 (82.72%) aligned concordantly exactly 1 time
+    6992 (0.99%) aligned concordantly >1 times
+    ----
+    115154 pairs aligned concordantly 0 times; of these:
+    18361 (15.94%) aligned discordantly 1 time
+    ----
+    96793 pairs aligned 0 times concordantly or discordantly; of these:
+    193586 mates make up the pairs; of these:
+    178581 (92.25%) aligned 0 times
+    14525 (7.50%) aligned exactly 1 time
+    480 (0.25%) aligned >1 times
+    87.37% overall alignment rate
+
+Starting alignment parsing at at 17:42:44, 9/21
+Sample RTB000 alignment parsed successfully.
+Sample RTB005 alignment parsed successfully.
+
+Starting mutation counting at at 17:44:19, 9/21
+File RTB000_P4P6.txt mutations counted successfully.
+File RTB005_P4P6.txt mutations counted successfully.
+
+Starting making old-style mutation strings at at 17:44:32, 9/21
+File RTB000_P4P6.txt made old mutation strings successfully.
+File RTB005_P4P6.txt made old mutation strings successfully.
+
+Copying counted mutation csv's rows to columns at at 17:45:23, 9/21
+
+Starting reactivity profile creation at at 17:45:23, 9/21
+Pipeline completed at 17:45:23, 9/21.
